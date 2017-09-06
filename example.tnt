@@ -1,0 +1,36 @@
+
+Categories
+----------
+
+@init = k, d, t, p, m, n, l, r
+@nuc = a, e, i, o, u
+@fin = k, t, th, m, n, g, z, s
+
+
+Structures
+----------
+
+1. @init @nuc @fin
+2. @nuc @fin
+
+
+Rules
+-----
+
+k --never-followed-by-- g
+s --never-followed-by-- @init
+a, o --never-in-same-word-as-- i, u
+
+
+Frequencies
+-----------
+
+;; frequencies are independent among groups
+;;     so 'k' technically has 2 frequencies: one for @init, and one for @fin
+;; added percentage total must be <100
+;; if all elements in the group specify a percentage, the percentage total must be =100
+;; elements not mentioned will have the remaining percentage divided among them, even if it's zero
+
+@init:
+    k = 12%
+    p = 7%
