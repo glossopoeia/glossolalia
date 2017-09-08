@@ -1,4 +1,4 @@
-#lang trinity/parser-only
+#lang trinity
 
 Categories
 ----------
