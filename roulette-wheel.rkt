@@ -11,7 +11,7 @@
 
 ;; type Roulette = Hash Any Decimal
 
-;; make-partial-roulette : List (Pair Any Decimal), List Any -> Roulette
+;; make-partial-roulette : List (Any, Decimal), List Any -> Roulette
 ;; Creates an abstract roulette wheel selection data structure from a list of value-weight pairs
 ;; and a list of unweight values. At least one of the lists must be non-empty, and if the second
 ;; list contains elements, the sum of the weights in the first list should be < 1, otherwise the
@@ -24,7 +24,9 @@
         [(and (empty? weighted) (empty? unweighted))
          (error 'make-partial-roulette "at least one of the input lists must be non-empty")]
         [(and (not (empty? unweighted)) (>= weight-sum 1))
-         (error 'make-partial-roulette "if unweighted elements are present, the sum of the weights in the weighted list must be < 1")]
+         (error 'make-partial-roulette
+                (string-append "if unweighted elements are present, the sum of the weights in the weighted list must be < 1, got "
+                               (number->string weight-sum)))]
         [(> (length unweighted) 0)
          (define partial-weight (/ (- 1 weight-sum) (length unweighted)))
          (make-full-roulette
@@ -34,7 +36,7 @@
         [else
          (make-full-roulette weighted)]))
 
-;; make-full-roulette : List (Pair Any Decimal) -> Roulette
+;; make-full-roulette : List (Any, Decimal) -> Roulette
 ;; Creates an abstract roulette wheel selection data structure from a list of value-weight pairs.
 ;; The list of pairs must be non-empty, and the sum of the weights must be <= 1.
 (define (make-full-roulette items)
@@ -56,12 +58,12 @@
     
     (for ([(k v) (in-hash roulette)])
         (set! sum (+ v sum))
-        (if (>= sum rn)
+        (if (and (void? out) (>= sum rn))
             (set! out k)
             (void)))
     out)
 
-;; sum-weights : List (Pair Any Decimal) -> Decimal
+;; sum-weights : List (Any, Decimal) -> Decimal
 (define (sum-weights assocs)
     (for/fold ([sum 0])
               ([val-weight (in-list assocs)])

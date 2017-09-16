@@ -18,9 +18,10 @@ Structures
 Rules
 -----
 
-k never-followed-by g
-s never-followed-by @init
-a, o never-in-same-word-as i, u
+k never-starts-word
+-- k never-followed-by g
+-- s never-followed-by z
+-- a, o never-in-same-word-as i, u
 
 -- LIST OF RULES : ARITIES
 -- never-followed-by : 2
@@ -44,11 +45,12 @@ Frequencies
 -- elements not mentioned will have the remaining percentage divided among them, even if it's zero
 
 @init:
-    k = 12%
+    k = 50%
     p, t = 7%
 
 Generate
 --------
 
 Seed = 123456
-Count = 5000
+Count = 20
+Longest = 4
