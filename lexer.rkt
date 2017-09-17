@@ -24,7 +24,7 @@
          (token 'PERCENTAGE (percent-string->number lexeme))]
         [(:+ numeric)
          (token 'INTEGER (string->number lexeme))]
-        [(:+ lower-case)
+        [(:+ (:or "'" alphabetic))
          (token 'SOUND-NAME lexeme)]
         [(:seq "@" (:+ alphabetic))
          (token 'GROUP-NAME lexeme)]))

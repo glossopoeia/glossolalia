@@ -124,35 +124,40 @@
              (error 'get-config "'Longest' field must have value > 1")
              (config seed count longest))]))
 
+;; generate : Config, List Structure, Hash GroupName (Roulette Ortho), List Rule -> Void
 (define (generate config structs freqs rules)
     (random-seed (config-seed config))
-    (define count (config-count config))
-    (define words (list))
-    (let loop ()
-        (define new (generate-words config structs freqs))
-        (set! words (append words (filter (curry obey-rules rules) new)))
-        (when (< (length words) count) (loop)))
-    (set! words (take words count))
+
+    (define words (generate-words config structs freqs rules))
+
     (displayln (map sound-word->string-word words))
     (define out (open-output-file "./generated.txt" #:exists 'replace))
     (for ([l (in-list words)])
         (displayln (sound-word->string-word l) out))
     (close-output-port out))
 
-;; generate-words : Config, List Structure, Hash GroupName (Roulette Ortho) -> List (List Sound)
-(define (generate-words config structs freqs)
-    ;; generate-word : Void -> List Sound
-    (define (generate-word)
-        (define word-len (random 1 (config-longest config)))
-        (define struct-count (length structs))
-        (append*
-            (for/list ([i (in-range word-len)])
-                (define syll (list-ref structs (random struct-count)))
-                (for/list ([p (in-list syll)])
-                    (sound (sample-roulette (hash-ref freqs p)) p)))))
-
+;; generate-words : Config, List Structure, Hash GroupName (Roulette Ortho), List Rule -> List (List Sound)
+(define (generate-words config structs freqs rules)
+    (define max-syllable (config-longest config))
     (for/list ([i (in-range (config-count config))])
-        (generate-word)))
+        (generate-word-under-rules max-syllable structs freqs rules)))
+
+;; generate-word-under-rules : PositiveInteger, List Structure, Hash GroupName (Roulette Ortho), List Rule -> List Sound
+(define (generate-word-under-rules max-syllable structs freqs rules)
+    (define maybe (generate-word max-syllable structs freqs))
+    (if (obey-rules rules maybe)
+        maybe
+        (generate-word-under-rules max-syllable structs freqs rules)))
+
+;; generate-word : PositiveInteger, List Structure, Hash GroupName (Roulette Ortho) -> List Sound
+(define (generate-word max-syllable structs freqs)
+    (define word-len (random 1 max-syllable))
+    (define struct-count (length structs))
+    (append*
+        (for/list ([i (in-range word-len)])
+            (define syll (list-ref structs (random struct-count)))
+            (for/list ([p (in-list syll)])
+                (sound (sample-roulette (hash-ref freqs p)) p)))))
 
 ;; obey-rules : List (List Sound -> Bool), List Sound -> Bool
 (define (obey-rules rules word)

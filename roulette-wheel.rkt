@@ -53,15 +53,14 @@
 ;; Simple linear choosing.
 (define (sample-roulette roulette)
     (define rn (random))
-    (define sum 0)
-    (define out (void))
     
-    (for ([(k v) (in-hash roulette)])
-        (set! sum (+ v sum))
-        (if (and (void? out) (>= sum rn))
-            (set! out k)
-            (void)))
-    out)
+    (let-values
+        ([(s out)
+            (for/fold ([sum 0] [out (void)])
+                      ([(k v) (in-hash roulette)]
+                      #:break (>= sum rn))
+                (values (+ sum v) k))])
+        out))
 
 ;; sum-weights : List (Any, Decimal) -> Decimal
 (define (sum-weights assocs)
