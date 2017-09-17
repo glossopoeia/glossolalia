@@ -17,32 +17,56 @@
 
 (define (interpret stx)
     (match stx
-        [(list 't-file cats structs rules freqs gen)
+        [(list 't-file cats structs rules gen)
          (define categories (get-categories cats))
          (define structures (get-structures structs))
          (define rule-funcs (make-rules rules))
-         (define wheels (make-frequencies freqs categories))
          (define config (get-config gen))
-         (generate config structures wheels rule-funcs)
+         (generate config structures categories rule-funcs)
          #t]))
 
+;; get-categories : Syntax -> Hash GroupName (Roulette Ortho)
 (define (get-categories stx)
+    (define (get-unspecified split)
+        (cond
+            [(and (> (length split) 1) (string? (first (first split))))
+             (first split)]
+            [(> (length split) 1)
+             (second split)]
+            [(string? (first (first split)))
+             (first split)]
+            [else empty]))
+    
+    (define (get-specified split)
+        (cond
+            [(and (> (length split) 1) (string? (first (first split))))
+             (second split)]
+            [(> (length split) 1)
+             (first split)]
+            [(string? (first (first split)))
+             empty]
+            [else (first split)]))
+
+    ;; get-category : Syntax -> (GroupName, Roulette Ortho)
     (define (get-category stx)
         (match stx
             [(list 't-category group-name sounds ...)
-             (cons group-name sounds)]))
+             (define split (group-by pair? (map get-category-sound sounds)))
+             (define specified (get-specified split))
+             (define unspecified (get-unspecified split))
+             (cons group-name (make-partial-roulette specified unspecified))]))
+    
+    ;; get-category-sound : Syntax -> Ortho | (Ortho, Decimal)
+    (define (get-category-sound stx)
+        (match stx
+            [(list 't-cat-sound sound-name)
+             sound-name]
+            [(list 't-cat-sound sound-name freq)
+             (cons sound-name freq)]))
 
     (match stx
         [(list 't-categories cats ...)
          (make-immutable-hash (map get-category cats))]))
-
-(module+ test
-    (check-equal?
-        (get-categories '(t-categories (t-category "@hi" "a" "b" "c")))
-        (make-immutable-hash (list (cons "@hi" (list "a" "b" "c")))))
-    (check-equal?
-        (get-categories '(t-categories (t-category "@hi" "a") (t-category "@bye" "b")))
-        (make-immutable-hash (list (cons "@hi" (list "a")) (cons "@bye" (list "b"))))))
 
 ;; get-structures : Syntax -> Roulette Structure
 (define (get-structures stx)
@@ -112,37 +136,6 @@
         [(list 't-rules rules ...)
          (map make-rule rules)]))
 
-;; make-frequencies : Syntax, Hash GroupName (List Ortho) -> Hash GroupName (Roulette Ortho)
-(define (make-frequencies stx cats)
-    ;; get-frequencies : Syntax -> Hash GroupName (List (Ortho, Decimal))
-    (define (get-frequencies stx)
-        (match stx
-            [(list 't-frequencies group-freqs ...)
-             (make-immutable-hash (map get-group-frequencies group-freqs))]))
-    
-    ;; get-group-frequencies : Syntax -> (GroupName, List (Ortho, Decimal))
-    (define (get-group-frequencies stx)
-        (match stx
-            [(list 't-group-frequency group-name sound-freqs ...)
-             (cons group-name (append* (map get-sound-frequency sound-freqs)))]))
-    
-    ;; get-sound-frequencies : Syntax -> List (Ortho, Decimal)
-    (define (get-sound-frequency stx)
-        (match stx
-            [(list 't-sound-frequency orthos ... freq)
-             (map (curryr cons freq) orthos)]))
-    
-    (define specified (get-frequencies stx))
-    (make-immutable-hash
-        (for/list ([(k v) (in-hash cats)])
-            (cons k
-                (if (hash-has-key? specified k)
-                    (let* ([part (hash-ref specified k)]
-                           [part-orthos (map car part)]
-                           [remain (filter (lambda (x) (not (member x part-orthos))) v)])
-                        (make-partial-roulette part remain))
-                    (make-partial-roulette empty v))))))
-
 ;; get-config : Syntax -> Config
 (define (get-config stx)
     (match stx
@@ -157,7 +150,7 @@
 
     (define words (generate-words config structs freqs rules))
 
-    (displayln (map sound-word->string-word words))
+    ;(displayln (map sound-word->string-word words))
     (define out (open-output-file "./generated.txt" #:exists 'replace))
     (for ([l (in-list words)])
         (displayln (sound-word->string-word l) out))
@@ -166,15 +159,16 @@
 ;; generate-words : Config, Roulette Structure, Hash GroupName (Roulette Ortho), List Rule -> List (List Sound)
 (define (generate-words config structs freqs rules)
     (define max-syllable (config-longest config))
-    (for/list ([i (in-range (config-count config))])
-        (generate-word-under-rules max-syllable structs freqs rules)))
+    (for/fold ([words (list)])
+              ([i (in-range (config-count config))])
+              (append words (list (generate-word-under-rules words max-syllable structs freqs rules)))))
 
-;; generate-word-under-rules : PositiveInteger, Roulette Structure, Hash GroupName (Roulette Ortho), List Rule -> List Sound
-(define (generate-word-under-rules max-syllable structs freqs rules)
+;; generate-word-under-rules : List (List Sound), PositiveInteger, Roulette Structure, Hash GroupName (Roulette Ortho), List Rule -> List Sound
+(define (generate-word-under-rules existing max-syllable structs freqs rules)
     (define maybe (generate-word max-syllable structs freqs))
-    (if (obey-rules rules maybe)
+    (if (and (obey-rules rules maybe) (not (member maybe existing)))
         maybe
-        (generate-word-under-rules max-syllable structs freqs rules)))
+        (generate-word-under-rules existing max-syllable structs freqs rules)))
 
 ;; generate-word : PositiveInteger, Roulette Structure, Hash GroupName (Roulette Ortho) -> List Sound
 (define (generate-word max-syllable structs freqs)

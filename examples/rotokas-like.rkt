@@ -18,9 +18,6 @@ Structures
 Rules
 -----
 
-Frequencies
------------
-
 Generate
 --------
 

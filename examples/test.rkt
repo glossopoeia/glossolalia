@@ -3,7 +3,7 @@
 Categories
 ----------
 
-@init = k, d, t, p, m, n, l, r
+@init = k = 50%, d, t = 7%, p = 7%, m, n, l, r
 @nuc = a, e, i, o, u
 @fin = k, t, th, m, n, g, z, s
 
@@ -34,19 +34,6 @@ k never-starts-word
 -- only-starts-word : 1
 -- only-ends-word : 1
 
-
-Frequencies
------------
-
--- frequencies are independent among groups
---     so 'k' technically has 2 frequencies: one for @init, and one for @fin
--- added percentage total must be <100
--- if all elements in the group specify a percentage, the percentage total must be =100
--- elements not mentioned will have the remaining percentage divided among them, even if it's zero
-
-@init:
-    k = 50%
-    p, t = 7%
 
 Generate
 --------

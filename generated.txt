@@ -64,7 +64,6 @@ veopagugaai
 tupukavoapi
 eita
 iaroakauvo
-ti
 puoe
 vuvurikiure
 keukaopeai
@@ -98,3 +97,4 @@ peokoa
 voe
 vogupoii
 pogipoiro
+kuatiipi

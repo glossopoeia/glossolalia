@@ -12,7 +12,7 @@ Categories
 @onset = m, n, p, k, ', h, w, l
 @vowel = a, e, i, o, u
 @long  = ā, ē, ī, ō, ū
-@dipth = iu, ou, au, eu, oi, ei, ai, ao, ae, ōu, ēi, āu, āi, āo, āe
+@dipth = iu, ou, au, eu, ou, ei, ai, ao, ae, ōu, ēi, āu, āi, āo, āe
 
 
 Structures
@@ -38,13 +38,6 @@ Rules
 
 w never-followed-by ū
 w never-followed-by u
-
-
-Frequencies
------------
-
--- Hawaiian, like other languages, favors certain letters in certain positions over others.
--- For this simple generator, we'll leave it alone for now.
 
 
 Generate
