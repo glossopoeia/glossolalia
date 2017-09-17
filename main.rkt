@@ -44,15 +44,42 @@
         (get-categories '(t-categories (t-category "@hi" "a") (t-category "@bye" "b")))
         (make-immutable-hash (list (cons "@hi" (list "a")) (cons "@bye" (list "b"))))))
 
+;; get-structures : Syntax -> Roulette Structure
 (define (get-structures stx)
+    (define (get-unspecified split)
+        (cond
+            [(and (> (length split) 1) (list? (first (first split))))
+             (first split)]
+            [(> (length split) 1)
+             (second split)]
+            [(list? (first (first split)))
+             (first split)]
+            [else empty]))
+    
+    (define (get-specified split)
+        (cond
+            [(and (> (length split) 1) (list? (first (first split))))
+             (second split)]
+            [(> (length split) 1)
+             (first split)]
+            [(list? (first (first split)))
+             empty]
+            [else (first split)]))
+
+    ;; get-structure : Syntax -> List Structure | (List Structure, Decimal)
     (define (get-structure stx)
         (match stx
             [(list 't-structure groups ...)
-             groups]))
+             groups]
+            [(list 't-structure-perc groups ... freq)
+             (cons groups freq)]))
     
     (match stx
         [(list 't-structures structs ...)
-         (map get-structure structs)]))
+         (define split (group-by list? (map get-structure structs)))
+         (define specified (get-specified split))
+         (define unspecified (get-unspecified split))
+         (make-partial-roulette specified unspecified)]))
 
 (define (make-rules stx)
     (define rule-templates (hash
@@ -124,7 +151,7 @@
              (error 'get-config "'Longest' field must have value > 1")
              (config seed count longest))]))
 
-;; generate : Config, List Structure, Hash GroupName (Roulette Ortho), List Rule -> Void
+;; generate : Config, Roulette Structure, Hash GroupName (Roulette Ortho), List Rule -> Void
 (define (generate config structs freqs rules)
     (random-seed (config-seed config))
 
@@ -136,27 +163,25 @@
         (displayln (sound-word->string-word l) out))
     (close-output-port out))
 
-;; generate-words : Config, List Structure, Hash GroupName (Roulette Ortho), List Rule -> List (List Sound)
+;; generate-words : Config, Roulette Structure, Hash GroupName (Roulette Ortho), List Rule -> List (List Sound)
 (define (generate-words config structs freqs rules)
     (define max-syllable (config-longest config))
     (for/list ([i (in-range (config-count config))])
         (generate-word-under-rules max-syllable structs freqs rules)))
 
-;; generate-word-under-rules : PositiveInteger, List Structure, Hash GroupName (Roulette Ortho), List Rule -> List Sound
+;; generate-word-under-rules : PositiveInteger, Roulette Structure, Hash GroupName (Roulette Ortho), List Rule -> List Sound
 (define (generate-word-under-rules max-syllable structs freqs rules)
     (define maybe (generate-word max-syllable structs freqs))
     (if (obey-rules rules maybe)
         maybe
         (generate-word-under-rules max-syllable structs freqs rules)))
 
-;; generate-word : PositiveInteger, List Structure, Hash GroupName (Roulette Ortho) -> List Sound
+;; generate-word : PositiveInteger, Roulette Structure, Hash GroupName (Roulette Ortho) -> List Sound
 (define (generate-word max-syllable structs freqs)
     (define word-len (random 1 max-syllable))
-    (define struct-count (length structs))
     (append*
         (for/list ([i (in-range word-len)])
-            (define syll (list-ref structs (random struct-count)))
-            (for/list ([p (in-list syll)])
+            (for/list ([p (in-list (sample-roulette structs))])
                 (sound (sample-roulette (hash-ref freqs p)) p)))))
 
 ;; obey-rules : List (List Sound -> Bool), List Sound -> Bool

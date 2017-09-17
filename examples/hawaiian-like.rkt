@@ -18,11 +18,15 @@ Categories
 Structures
 ----------
 
-1. @onset @vowel
+-- Adding these percentages here keeps down on the number of syllables in the average word that have no consonant.
+-- Otherwise we can end up with a lot of words have 3 to 4 times as many vowels as consonants, and even
+-- Hawaiian isn't *that* masochistic.
+
+1. @onset @vowel = 25%
 2. @vowel
-3. @onset @long
+3. @onset @long = 25%
 4. @long
-5. @onset @dipth
+5. @onset @dipth = 25%
 6. @dipth
 
 
