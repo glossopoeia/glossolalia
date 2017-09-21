@@ -107,15 +107,18 @@
 
 (define (make-rules stx)
     (define rule-templates (hash
-        'never-starts-word      never-starts-word
-        'never-ends-word        never-ends-word
-        'only-starts-word       only-starts-word
-        'only-ends-word         only-ends-word
-        'never-followed-by      never-followed-by
-        'never-preceded-by      never-preceded-by
-        'never-in-same-word-as  never-in-same-word-as
-        'always-followed-by     always-followed-by
-        'always-preceded-by     always-preceded-by))
+        'never-starts-word          never-starts-word
+        'never-ends-word            never-ends-word
+        'never-followed-by          never-followed-by
+        'never-preceded-by          never-preceded-by
+        'never-in-same-word-as      never-in-same-word-as
+        'never-doubled              never-doubled
+        'never-adjacent-to          never-adjacent-to
+        'never-in-middle-of-word    never-in-middle-of-word
+        'only-starts-word           only-starts-word
+        'only-ends-word             only-ends-word
+        'only-followed-by         only-followed-by
+        'only-preceded-by         only-preceded-by))
     
     (define (get-rule-args stx)
         (match stx
@@ -228,12 +231,30 @@
         (word-has-group? word orth-or-group)
         (word-has-ortho? word orth-or-group)))
 
-;; contains-adjacent? : List Sound, Ortho | GroupName, Ortho | GroupName -> Bool
-(define (contains-adjacent? word l r)
+;; contains-pair? : List Sound, Ortho | GroupName, Ortho | GroupName -> Bool
+(define (contains-pair? word l r)
     (cond
         [(< (length word) 2) #f]
         [(and (sound-has-prop? (first word) l) (sound-has-prop? (second word) r)) #t]
-        [else (contains-adjacent? (rest word) l r)]))
+        [else (contains-pair? (rest word) l r)]))
+
+;; each-followed-by-one-of? : List Sound, Ortho | GroupName, List (Ortho | GroupName) -> Bool
+(define (each-followed-by-one-of? word l rs)
+    (cond
+        [(< (length word) 2) (not (sound-has-prop? (first word) l))]
+        [(sound-has-prop? (first word) l)
+         (and (ormap (curry sound-has-prop? (second word)) rs)
+              (each-followed-by-one-of? (rest (rest word)) l rs))]
+        [else (each-followed-by-one-of? (rest word) l rs)]))
+
+;; each-preceded-by-one-of? : List Sound, Ortho | GroupName, List (Ortho | GroupName) -> Bool
+(define (each-preceded-by-one-of? word l rs)
+    (cond
+        [(< (length word) 2) #t]
+        [(sound-has-prop? (second word) l)
+         (and (ormap (curry sound-has-prop? (first word)) rs)
+              (each-preceded-by-one-of? (rest (rest word)) l rs))]
+        [else (each-preceded-by-one-of? (rest word) l rs)]))
 
 (define (never-starts-word args word)
     (for/and ([s (in-list args)])
@@ -243,6 +264,35 @@
     (for/and ([s (in-list args)])
         (not (sound-has-prop? (last word) s))))
 
+(define (never-followed-by l-args r-args word)
+    (for/and ([l (in-list l-args)])
+        (for/and ([r (in-list r-args)])
+            (not (contains-pair? word l r)))))
+
+(define (never-preceded-by l-args r-args word)
+    (for/and ([l (in-list l-args)])
+        (for/and ([r (in-list r-args)])
+            (not (contains-pair? word r l)))))
+
+(define (never-in-same-word-as l-args r-args word)
+    (for/and ([l (in-list l-args)])
+        (define has-left (word-has-prop? word l))
+        (for/and ([r (in-list r-args)])
+            (nand has-left (word-has-prop? word r)))))
+
+(define (never-doubled args word)
+    (for/and ([l (in-list args)])
+        (not (contains-pair? word l l))))
+
+(define (never-adjacent-to l-args r-args word)
+    (for/and ([l (in-list l-args)])
+        (for/and ([r (in-list r-args)])
+            (nor (contains-pair? word l r) (contains-pair? word r l)))))
+
+(define (never-in-middle-of-word args word)
+    (for/and ([l (in-list args)])
+        (not (word-has-prop? (drop-right (rest word) 1) l))))
+
 (define (only-starts-word args word)
     (for/and ([s (in-list args)])
         (not (word-has-prop? (rest word) s))))
@@ -251,33 +301,17 @@
     (for/and ([s (in-list args)])
         (not (word-has-prop? (drop-right word 1) s))))
 
-(define (never-followed-by l-args r-args word)
+(define (only-followed-by l-args r-args word)
     (for/and ([l (in-list l-args)])
-        (for/and ([r (in-list r-args)])
-            (not (contains-adjacent? word l r)))))
+        (implies
+            (word-has-prop? word l)
+            (each-followed-by-one-of? word l r-args))))
 
-(define (never-preceded-by l-args r-args word)
+(define (only-preceded-by l-args r-args word)
     (for/and ([l (in-list l-args)])
-        (for/and ([r (in-list r-args)])
-            (not (contains-adjacent? word r l)))))
-
-(define (never-in-same-word-as l-args r-args word)
-    (for/and ([l (in-list l-args)])
-        (define has-left (word-has-prop? word l))
-        (for/and ([r (in-list r-args)])
-            (nand has-left (word-has-prop? word r)))))
-
-(define (always-followed-by l-args r-args word)
-    (for/and ([l (in-list l-args)])
-        (define has-left (word-has-prop? word l))
-        (for/and ([r (in-list r-args)])
-            (implies has-left (contains-adjacent? word l r)))))
-
-(define (always-preceded-by l-args r-args word)
-    (for/and ([l (in-list l-args)])
-        (define has-left (word-has-prop? word l))
-        (for/and ([r (in-list r-args)])
-            (implies has-left (contains-adjacent? word r l)))))
+        (implies
+            (word-has-prop? word l)
+            (each-preceded-by-one-of? word l r-args))))
 
 (module+ test
     (define (simple-test-word s)
@@ -293,16 +327,6 @@
     (check-true (never-ends-word (list 'con) (list (sound "b" 'con) (sound "a" 'vow))))
     (check-false (never-ends-word (list 'con) (list (sound "a" 'vow) (sound "b" 'con))))
     
-    (check-true (only-starts-word (list "k") (simple-test-word "fail")))
-    (check-true (only-starts-word (list "k") (simple-test-word "kill")))
-    (check-false (only-starts-word (list "k") (simple-test-word "pickle")))
-    (check-false (only-starts-word (list "k") (simple-test-word "kek")))
-    
-    (check-true (only-ends-word (list "k") (simple-test-word "fail")))
-    (check-true (only-ends-word (list "k") (simple-test-word "sick")))
-    (check-false (only-ends-word (list "k") (simple-test-word "pickle")))
-    (check-false (only-ends-word (list "k") (simple-test-word "kek")))
-    
     (check-true (never-followed-by (list "k") (list "g") (simple-test-word "hodor")))
     (check-true (never-followed-by (list "k") (list "g") (simple-test-word "akngu")))
     (check-false (never-followed-by (list "k") (list "g") (simple-test-word "bakgi")))
@@ -315,12 +339,42 @@
     (check-true (never-preceded-by (list "a") (list "b") (simple-test-word "aloe")))
     (check-true (never-preceded-by (list "a") (list "b") (simple-test-word "aberstwyth")))
     (check-false (never-preceded-by (list "a") (list "b") (simple-test-word "bar")))
+
+    (check-true (never-doubled (list "a") (simple-test-word "alalala")))
+    (check-false (never-doubled (list "a") (simple-test-word "aardvark")))
+
+    (check-true (never-adjacent-to (list "a") (list "b") (simple-test-word "belay")))
+    (check-true (never-adjacent-to (list "b") (list "a") (simple-test-word "belay")))
+    (check-false (never-adjacent-to (list "a") (list "b") (simple-test-word "abbey")))
+    (check-false (never-adjacent-to (list "a") (list "b") (simple-test-word "baron")))
+    (check-false (never-adjacent-to (list "b") (list "a") (simple-test-word "abbey")))
+    (check-false (never-adjacent-to (list "b") (list "a") (simple-test-word "baron")))
+    (check-true (never-adjacent-to (list "a" "l") (list "b") (simple-test-word "belay")))
+    (check-false (never-adjacent-to (list "a" "l") (list "b") (simple-test-word "baron")))
+    (check-false (never-adjacent-to (list "a" "l") (list "b") (simple-test-word "blade")))
+
+    (check-true (never-in-middle-of-word (list "a") (simple-test-word "abort")))
+    (check-true (never-in-middle-of-word (list "e") (simple-test-word "rake")))
+    (check-false (never-in-middle-of-word (list "a") (simple-test-word "barrel")))
+
+    (check-true (only-starts-word (list "k") (simple-test-word "fail")))
+    (check-true (only-starts-word (list "k") (simple-test-word "kill")))
+    (check-false (only-starts-word (list "k") (simple-test-word "pickle")))
+    (check-false (only-starts-word (list "k") (simple-test-word "kek")))
     
-    (check-true (always-followed-by (list "a") (list "b") (simple-test-word "right")))
-    (check-true (always-followed-by (list "a") (list "b") (simple-test-word "belle")))
-    (check-true (always-followed-by (list "a") (list "b") (simple-test-word "abbey")))
-    (check-false (always-followed-by (list "a") (list "b") (simple-test-word "allow")))
+    (check-true (only-ends-word (list "k") (simple-test-word "fail")))
+    (check-true (only-ends-word (list "k") (simple-test-word "sick")))
+    (check-false (only-ends-word (list "k") (simple-test-word "pickle")))
+    (check-false (only-ends-word (list "k") (simple-test-word "kek")))
     
-    (check-true (always-preceded-by (list "a") (list "b") (simple-test-word "bat")))
-    (check-true (always-preceded-by (list "a") (list "b") (simple-test-word "bed")))
-    (check-false (always-preceded-by (list "a") (list "b") (simple-test-word "cat"))))
+    (check-true (only-followed-by (list "a") (list "b") (simple-test-word "right")))
+    (check-true (only-followed-by (list "a") (list "b") (simple-test-word "belle")))
+    (check-true (only-followed-by (list "a") (list "b") (simple-test-word "abbey")))
+    (check-true (only-followed-by (list "a") (list "b" "d") (simple-test-word "adder")))
+    (check-false (only-followed-by (list "a") (list "b") (simple-test-word "allow")))
+    (check-false (only-followed-by (list "n") (list "e") (simple-test-word "connect")))
+    (check-false (only-followed-by (list "t") (list "h") (simple-test-word "cat")))
+    
+    (check-true (only-preceded-by (list "a") (list "b") (simple-test-word "bat")))
+    (check-true (only-preceded-by (list "a") (list "b") (simple-test-word "bed")))
+    (check-false (only-preceded-by (list "a") (list "b") (simple-test-word "cat"))))
