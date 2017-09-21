@@ -18,6 +18,8 @@ Structures
 Rules
 -----
 
+@long never-starts-word
+
 Generate
 --------
 

@@ -27,6 +27,6 @@
         [(:+ (:or "'" alphabetic))
          (token 'SOUND-NAME lexeme)]
         [(:seq "@" (:+ alphabetic))
-         (token 'GROUP-NAME lexeme)]))
+         (token 'GROUP-NAME (string->symbol lexeme))]))
 
 (provide trinity-lexer)

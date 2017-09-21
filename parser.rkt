@@ -16,7 +16,7 @@ t-rules       : /"Rules" /t-plus-newl (t-rule /t-star-newl)*
 t-unary-rule  : t-rule-args UNARY-RULE-NAME /NEWLINE
 t-binary-rule : t-rule-args BINARY-RULE-NAME t-rule-args /NEWLINE
 t-rule-args   : t-rule-arg (/"," t-rule-arg)*
-@t-rule-arg   : SOUND-NAME
+@t-rule-arg   : SOUND-NAME | GROUP-NAME
 
 t-generate : /"Generate" /t-plus-newl t-seed /t-star-newl t-count /t-star-newl t-longest /t-star-newl
 @t-seed    : /"Seed" /"=" INTEGER /NEWLINE

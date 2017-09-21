@@ -200,36 +200,56 @@
 ;; RULE TEMPLATES
 ;; ================================================
 
-;; has-ortho? : List Sound, Ortho -> Bool
-(define (has-ortho? word ortho)
+;; sound-has-ortho? : List Sound, Ortho -> Bool
+(define (sound-has-ortho? sound ortho)
+    (string=? (sound-ortho sound) ortho))
+
+;; sound-has-group? : List Sound, GroupName -> Bool
+(define (sound-has-group? sound group)
+    (symbol=? (sound-group sound) group))
+
+;; sound-has-prop? : List Sound, Ortho | GroupName -> Bool
+(define (sound-has-prop? sound orth-or-group)
+    (if (symbol? orth-or-group)
+        (sound-has-group? sound orth-or-group)
+        (sound-has-ortho? sound orth-or-group)))
+
+;; word-has-ortho? : List Sound, Ortho -> Bool
+(define (word-has-ortho? word ortho)
     (memf (lambda (s) (string=? (sound-ortho s) ortho)) word))
 
-;; contains-adjacent? : List Sound, Ortho, Ortho -> Bool
+;; word-has-group? : List Sound, GroupName -> Bool
+(define (word-has-group? word group)
+    (memf (lambda (s) (symbol=? (sound-group s) group)) word))
+
+;; word-has-prop? : List Sound, Ortho | GroupName -> Bool
+(define (word-has-prop? word orth-or-group)
+    (if (symbol? orth-or-group)
+        (word-has-group? word orth-or-group)
+        (word-has-ortho? word orth-or-group)))
+
+;; contains-adjacent? : List Sound, Ortho | GroupName, Ortho | GroupName -> Bool
 (define (contains-adjacent? word l r)
     (cond
         [(< (length word) 2) #f]
-        [(and (string=? (sound-ortho (first word)) l) (string=? (sound-ortho (second word)) r)) #t]
-        [else (contains-adjacent? (cdr word) l r)]))
+        [(and (sound-has-prop? (first word) l) (sound-has-prop? (second word) r)) #t]
+        [else (contains-adjacent? (rest word) l r)]))
 
 (define (never-starts-word args word)
     (for/and ([s (in-list args)])
-        (not (string=? (sound-ortho (first word)) s))))
+        (not (sound-has-prop? (first word) s))))
 
 (define (never-ends-word args word)
     (for/and ([s (in-list args)])
-        (not (string=? (sound-ortho (last word)) s))))
+        (not (sound-has-prop? (last word) s))))
 
 (define (only-starts-word args word)
     (for/and ([s (in-list args)])
-        (if (has-ortho? word s)
-            (string=? (sound-ortho (first word)) s)
-            #t)))
+        (not (word-has-prop? (rest word) s))))
 
 (define (only-ends-word args word)
     (for/and ([s (in-list args)])
-        (if (has-ortho? word s)
-            (string=? (sound-ortho (last word)) s)
-            #t)))
+        (not (word-has-prop? (drop-right word 1) s))))
 
 (define (never-followed-by l-args r-args word)
     (for/and ([l (in-list l-args)])
@@ -243,22 +263,21 @@
 
 (define (never-in-same-word-as l-args r-args word)
     (for/and ([l (in-list l-args)])
+        (define has-left (word-has-prop? word l))
         (for/and ([r (in-list r-args)])
-            (not (and (has-ortho? word l) (has-ortho? word r))))))
+            (nand has-left (word-has-prop? word r)))))
 
 (define (always-followed-by l-args r-args word)
     (for/and ([l (in-list l-args)])
+        (define has-left (word-has-prop? word l))
         (for/and ([r (in-list r-args)])
-            (if (has-ortho? word l)
-                (contains-adjacent? word l r)
-                #t))))
+            (implies has-left (contains-adjacent? word l r)))))
 
 (define (always-preceded-by l-args r-args word)
     (for/and ([l (in-list l-args)])
+        (define has-left (word-has-prop? word l))
         (for/and ([r (in-list r-args)])
-            (if (has-ortho? word l)
-                (contains-adjacent? word r l)
-                #t))))
+            (implies has-left (contains-adjacent? word r l)))))
 
 (module+ test
     (define (simple-test-word s)
@@ -271,14 +290,18 @@
     
     (check-true (never-ends-word (list "k") (simple-test-word "salt")))
     (check-false (never-ends-word (list "k") (simple-test-word "pick")))
+    (check-true (never-ends-word (list 'con) (list (sound "b" 'con) (sound "a" 'vow))))
+    (check-false (never-ends-word (list 'con) (list (sound "a" 'vow) (sound "b" 'con))))
     
     (check-true (only-starts-word (list "k") (simple-test-word "fail")))
     (check-true (only-starts-word (list "k") (simple-test-word "kill")))
     (check-false (only-starts-word (list "k") (simple-test-word "pickle")))
+    (check-false (only-starts-word (list "k") (simple-test-word "kek")))
     
     (check-true (only-ends-word (list "k") (simple-test-word "fail")))
     (check-true (only-ends-word (list "k") (simple-test-word "sick")))
     (check-false (only-ends-word (list "k") (simple-test-word "pickle")))
+    (check-false (only-ends-word (list "k") (simple-test-word "kek")))
     
     (check-true (never-followed-by (list "k") (list "g") (simple-test-word "hodor")))
     (check-true (never-followed-by (list "k") (list "g") (simple-test-word "akngu")))
