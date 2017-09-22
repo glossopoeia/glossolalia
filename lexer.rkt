@@ -14,7 +14,7 @@
         [(:or "\n" "\r\n") (token 'NEWLINE lexeme)]
         [whitespace (token 'WS #:skip? #t)]
         [(from/to "--" "\n") (token lexeme #:skip? #t)]
-        [(:or "Categories" "Structures" "Rules" "Frequencies" "Generate" "Seed" "Count" "Longest" "," "." "=" ":")
+        [(:or "Categories" "Structures" "Rules" "Frequencies" "Generate" "Seed" "Count" "Longest" "Shortest" "Mode" "," "." "=" ":")
          (token lexeme lexeme)]
         [(:or "never-starts-word" "never-ends-word" "never-in-middle-of-word" "never-doubled" "never-adjacent-to" "only-starts-word" "only-ends-word")
          (token 'UNARY-RULE-NAME (string->symbol lexeme))]

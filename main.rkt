@@ -1,11 +1,11 @@
 #lang racket
 (require "parser.rkt" "tokenizer.rkt" "roulette-wheel.rkt")
-(require br/syntax)
+(require math/distributions br/syntax)
 
 (module+ test
     (require rackunit))
 
-(struct config (seed count longest) #:transparent)
+(struct config (seed count word-len-dist) #:transparent)
 (struct sound (ortho group) #:transparent)
 
 (define (read-syntax path port)
@@ -141,11 +141,36 @@
 
 ;; get-config : Syntax -> Config
 (define (get-config stx)
+    (define (verify-valid-distribution shortest longest mode)
+        (cond
+            [(or (< shortest 1) (< longest 1))
+             (error 'verify-valid-distribution "Both 'Longest' and 'Shortest' must have value >= 1")]
+            [(< longest shortest)
+             (error 'verify-valid-distribution "Longest must be greater than or equal to Shortest")]
+            [(< longest mode)
+             (error 'verify-valid-distribution "Longest must be greater than or equal to Mode")]
+            [(< mode shortest)
+             (error 'verify-valid-distribution "Mode must be greater than or equal to Shortest")]
+            [else (void)]))
+    
+    (define (get-with-default sym default items)
+        (for/fold ([res default])
+                  ([stx (in-list items)]
+                   #:when (symbol=? (first stx) sym))
+            (second stx)))
+
+    (define (get-seed items) (get-with-default 't-seed 9001 items))
+    (define (get-count items) (get-with-default 't-count 100 items))
+    (define (get-word-len-dist items)
+        (define shortest (get-with-default 't-shortest 1 items))
+        (define longest (add1 (get-with-default 't-longest 5 items)))
+        (define mode (get-with-default 't-mode (* 0.5 (+ longest shortest)) items))
+        (verify-valid-distribution shortest longest mode)
+        (triangle-dist shortest longest mode))
+
     (match stx
-        [(list 't-generate seed count longest)
-         (if (< longest 1)
-             (error 'get-config "'Longest' field must have value > 1")
-             (config seed count longest))]))
+        [(list 't-generate items ...)
+         (config (get-seed items) (get-count items) (get-word-len-dist items))]))
 
 ;; generate : Config, Roulette Structure, Hash GroupName (Roulette Ortho), List Rule -> Void
 (define (generate config structs freqs rules)
@@ -161,21 +186,21 @@
 
 ;; generate-words : Config, Roulette Structure, Hash GroupName (Roulette Ortho), List Rule -> List (List Sound)
 (define (generate-words config structs freqs rules)
-    (define max-syllable (config-longest config))
+    (define syllable-dist (config-word-len-dist config))
     (for/fold ([words (list)])
               ([i (in-range (config-count config))])
-              (append words (list (generate-word-under-rules words max-syllable structs freqs rules)))))
+              (append words (list (generate-word-under-rules words syllable-dist structs freqs rules)))))
 
-;; generate-word-under-rules : List (List Sound), PositiveInteger, Roulette Structure, Hash GroupName (Roulette Ortho), List Rule -> List Sound
-(define (generate-word-under-rules existing max-syllable structs freqs rules)
-    (define maybe (generate-word max-syllable structs freqs))
+;; generate-word-under-rules : List (List Sound), Distribution, Roulette Structure, Hash GroupName (Roulette Ortho), List Rule -> List Sound
+(define (generate-word-under-rules existing syllable-dist structs freqs rules)
+    (define maybe (generate-word syllable-dist structs freqs))
     (if (and (obey-rules rules maybe) (not (member maybe existing)))
         maybe
-        (generate-word-under-rules existing max-syllable structs freqs rules)))
+        (generate-word-under-rules existing syllable-dist structs freqs rules)))
 
-;; generate-word : PositiveInteger, Roulette Structure, Hash GroupName (Roulette Ortho) -> List Sound
-(define (generate-word max-syllable structs freqs)
-    (define word-len (random 1 max-syllable))
+;; generate-word : Distribution, Roulette Structure, Hash GroupName (Roulette Ortho) -> List Sound
+(define (generate-word syllable-dist structs freqs)
+    (define word-len (floor (sample syllable-dist)))
     (append*
         (for/list ([i (in-range word-len)])
             (for/list ([p (in-list (sample-roulette structs))])

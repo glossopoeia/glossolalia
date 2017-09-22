@@ -18,10 +18,13 @@ t-binary-rule : t-rule-args BINARY-RULE-NAME t-rule-args /NEWLINE
 t-rule-args   : t-rule-arg (/"," t-rule-arg)*
 @t-rule-arg   : SOUND-NAME | GROUP-NAME
 
-t-generate : /"Generate" /t-plus-newl t-seed /t-star-newl t-count /t-star-newl t-longest /t-star-newl
-@t-seed    : /"Seed" /"=" INTEGER /NEWLINE
-@t-count   : /"Count" /"=" INTEGER
-@t-longest : /"Longest" /"=" INTEGER
+t-generate     : /"Generate" /t-plus-newl (t-config-item /t-star-newl)*
+@t-config-item : t-seed | t-count | t-shortest | t-longest | t-mode
+t-seed         : /"Seed" /"=" INTEGER /NEWLINE
+t-count        : /"Count" /"=" INTEGER /NEWLINE
+t-shortest     : /"Shortest" /"=" INTEGER /NEWLINE
+t-longest      : /"Longest" /"=" INTEGER /NEWLINE
+t-mode         : /"Mode" /"=" INTEGER /NEWLINE
 
 t-plus-newl : NEWLINE+
 t-star-newl : NEWLINE*

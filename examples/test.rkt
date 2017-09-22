@@ -41,3 +41,4 @@ Generate
 Seed = 123456
 Count = 20
 Longest = 4
+Shortest = 2
