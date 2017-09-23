@@ -11,14 +11,15 @@ Categories
 Structures
 ----------
 
-1. @init @nuc @fin
-2. @nuc @fin
+$init = @init @nuc @fin
+$no-init = @nuc @fin
 
 
 Rules
 -----
 
 k never-starts-word
+$no-init only-followed-by $init
 -- k never-followed-by g
 -- s never-followed-by z
 -- a, o never-in-same-word-as i, u

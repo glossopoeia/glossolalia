@@ -22,12 +22,12 @@ Structures
 -- Otherwise we can end up with a lot of words have 3 to 4 times as many vowels as consonants, and even
 -- Hawaiian isn't *that* masochistic.
 
-1. @onset @vowel = 25%
-2. @vowel
-3. @onset @long = 25%
-4. @long
-5. @onset @dipth = 25%
-6. @dipth
+$one   = @onset @vowel = 25%
+$two   = @vowel
+$three = @onset @long = 25%
+$four  = @long
+$five  = @onset @dipth = 25%
+$six   = @dipth
 
 
 Rules

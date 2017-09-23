@@ -10,10 +10,10 @@ Categories
 Structures
 ----------
 
-1. @short
-2. @long
-3. @onset @short = 50%
-4. @onset @long = 30%
+$one   = @short
+$two   = @long
+$three = @onset @short = 50%
+$four  = @onset @long = 30%
 
 Rules
 -----

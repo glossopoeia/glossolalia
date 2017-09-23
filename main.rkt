@@ -7,6 +7,7 @@
 
 (struct config (seed count word-len-dist) #:transparent)
 (struct sound (ortho group) #:transparent)
+(struct syllable (struct sounds) #:transparent)
 
 (define (read-syntax path port)
     (define parse-tree (parse path (make-tokenizer port path)))
@@ -68,7 +69,7 @@
         [(list 't-categories cats ...)
          (make-immutable-hash (map get-category cats))]))
 
-;; get-structures : Syntax -> Roulette Structure
+;; get-structures : Syntax -> Roulette (StructName, Structure)
 (define (get-structures stx)
     (define (get-unspecified split)
         (cond
@@ -90,13 +91,13 @@
              empty]
             [else (first split)]))
 
-    ;; get-structure : Syntax -> List Structure | (List Structure, Decimal)
+    ;; get-structure : Syntax -> List Structure | (List (StructName, Structure), Decimal)
     (define (get-structure stx)
         (match stx
-            [(list 't-structure groups ...)
-             groups]
-            [(list 't-structure-perc groups ... freq)
-             (cons groups freq)]))
+            [(list 't-structure struct-name groups ...)
+             (cons struct-name groups)]
+            [(list 't-structure-perc struct-name groups ... freq)
+             (cons (cons struct-name groups) freq)]))
     
     (match stx
         [(list 't-structures structs ...)
@@ -117,20 +118,31 @@
         'never-in-middle-of-word    never-in-middle-of-word
         'only-starts-word           only-starts-word
         'only-ends-word             only-ends-word
-        'only-followed-by         only-followed-by
-        'only-preceded-by         only-preceded-by))
+        'only-followed-by           only-followed-by
+        'only-preceded-by           only-preceded-by))
     
     (define (get-rule-args stx)
         (match stx
             [(list 't-rule-args args ...)
+             args]
+            [(list 't-srule-args args ...)
              args]))
 
     (define (make-rule stx)
         (match stx
             [(list 't-unary-rule args name)
+             (make-word-rule
+                (curry (hash-ref rule-templates name)
+                       (get-rule-args args)))]
+            [(list 't-binary-rule l-args name r-args)
+             (make-word-rule
+                (curry (hash-ref rule-templates name)
+                       (get-rule-args l-args)
+                       (get-rule-args r-args)))]
+            [(list 't-unary-srule args name)
              (curry (hash-ref rule-templates name)
                     (get-rule-args args))]
-            [(list 't-binary-rule l-args name r-args)
+            [(list 't-binary-srule l-args name r-args)
              (curry (hash-ref rule-templates name)
                     (get-rule-args l-args)
                     (get-rule-args r-args))]))
@@ -143,8 +155,8 @@
 (define (get-config stx)
     (define (verify-valid-distribution shortest longest mode)
         (cond
-            [(or (< shortest 1) (< longest 1))
-             (error 'verify-valid-distribution "Both 'Longest' and 'Shortest' must have value >= 1")]
+            [(or (< shortest 1))
+             (error 'verify-valid-distribution "'Shortest' must have value >= 1")]
             [(< longest shortest)
              (error 'verify-valid-distribution "Longest must be greater than or equal to Shortest")]
             [(< longest mode)
@@ -178,10 +190,10 @@
 
     (define words (generate-words config structs freqs rules))
 
-    ;(displayln (map sound-word->string-word words))
+    ;(displayln (map syllable-word->string-word words))
     (define out (open-output-file "./generated.txt" #:exists 'replace))
     (for ([l (in-list words)])
-        (displayln (sound-word->string-word l) out))
+        (displayln (syllable-word->string-word l) out))
     (close-output-port out))
 
 ;; generate-words : Config, Roulette Structure, Hash GroupName (Roulette Ortho), List Rule -> List (List Sound)
@@ -198,13 +210,17 @@
         maybe
         (generate-word-under-rules existing syllable-dist structs freqs rules)))
 
-;; generate-word : Distribution, Roulette Structure, Hash GroupName (Roulette Ortho) -> List Sound
+;; generate-word : Distribution, Roulette Structure, Hash GroupName (Roulette Ortho) -> List Syllable
 (define (generate-word syllable-dist structs freqs)
+    (define (generate-syllable)
+        (define syll (sample-roulette structs))
+        (syllable (first syll)
+                  (for/list ([p (in-list (rest syll))])
+                    (sound (sample-roulette (hash-ref freqs p)) p))))
+
     (define word-len (floor (sample syllable-dist)))
-    (append*
-        (for/list ([i (in-range word-len)])
-            (for/list ([p (in-list (sample-roulette structs))])
-                (sound (sample-roulette (hash-ref freqs p)) p)))))
+    (for/list ([i (in-range word-len)])
+        (generate-syllable)))
 
 ;; obey-rules : List (List Sound -> Bool), List Sound -> Bool
 (define (obey-rules rules word)
@@ -216,78 +232,110 @@
     (check-true (obey-rules (list (lambda (x) #t)) (list (sound "a" "h"))))
     (check-false (obey-rules (list (lambda (x) #f)) (list (sound "b" "h")))))
 
+;; syllable-word->string-word : List Syllable -> String
+(define (syllable-word->string-word sw)
+    (sound-word->string-word (syllable-word->sound-word sw)))
+
+;; syllable-word->sound-word : List Syllable -> List Sound
+(define (syllable-word->sound-word sw)
+    (append* (map syllable-sounds sw)))
+
 ;; sound-word->string-word : List Sound -> String
 (define (sound-word->string-word sw)
     (string-append* (map sound-ortho sw)))
-
-(module+ test
-    (check-equal? (sound-word->string-word (list)) "")
-    (check-equal? (sound-word->string-word (list (sound "a" "h") (sound "t" "e"))) "at"))
 
 ;; ================================================
 ;; RULE TEMPLATES
 ;; ================================================
 
-;; sound-has-ortho? : List Sound, Ortho -> Bool
+;; sound-has-ortho? : Sound, Ortho -> Bool
 (define (sound-has-ortho? sound ortho)
     (string=? (sound-ortho sound) ortho))
 
-;; sound-has-group? : List Sound, GroupName -> Bool
+;; sound-has-group? : Sound, GroupName -> Bool
 (define (sound-has-group? sound group)
     (symbol=? (sound-group sound) group))
 
-;; sound-has-prop? : List Sound, Ortho | GroupName -> Bool
+;; sound-has-prop? : Sound, Ortho | GroupName -> Bool
 (define (sound-has-prop? sound orth-or-group)
     (if (symbol? orth-or-group)
         (sound-has-group? sound orth-or-group)
         (sound-has-ortho? sound orth-or-group)))
 
-;; word-has-ortho? : List Sound, Ortho -> Bool
-(define (word-has-ortho? word ortho)
+;; syllable-has-prop? : Syllable, StructName -> Bool
+(define (syllable-has-prop? syll struct)
+    (symbol=? struct (syllable-struct syll)))
+
+;; part-has-prop? : Syllable | Sound, StructName | Ortho | GroupName -> Bool
+(define (part-has-prop? part prop)
+    (if (syllable? part)
+        (syllable-has-prop? part prop)
+        (sound-has-prop? part prop)))
+
+;; sound-word-has-ortho? : List Sound, Ortho -> Bool
+(define (sound-word-has-ortho? word ortho)
     (memf (lambda (s) (string=? (sound-ortho s) ortho)) word))
 
-;; word-has-group? : List Sound, GroupName -> Bool
-(define (word-has-group? word group)
+;; sound-word-has-group? : List Sound, GroupName -> Bool
+(define (sound-word-has-group? word group)
     (memf (lambda (s) (symbol=? (sound-group s) group)) word))
 
-;; word-has-prop? : List Sound, Ortho | GroupName -> Bool
-(define (word-has-prop? word orth-or-group)
+;; sound-word-has-prop? : List Sound, Ortho | GroupName -> Bool
+(define (sound-word-has-prop? word orth-or-group)
     (if (symbol? orth-or-group)
-        (word-has-group? word orth-or-group)
-        (word-has-ortho? word orth-or-group)))
+        (sound-word-has-group? word orth-or-group)
+        (sound-word-has-ortho? word orth-or-group)))
 
-;; contains-pair? : List Sound, Ortho | GroupName, Ortho | GroupName -> Bool
+;; syllable-word-has-prop? : List Syllable, StructName -> Bool
+(define (syllable-word-has-prop? word struct)
+    (memf (lambda (s) (symbol=? (syllable-struct s) struct)) word))
+
+;; word-has-prop? : List Sound | List Syllable, Ortho | GroupName | StructName -> Bool
+(define (word-has-prop? word prop)
+    (cond
+        [(empty? word) #f]
+        [(syllable? (first word))
+         (syllable-word-has-prop? word prop)]
+        [else
+         (sound-word-has-prop? word prop)]))
+
+;; contains-pair? : List Sound | List Syllable, Ortho | GroupName | StructName, Ortho | GroupName | StructName -> Bool
 (define (contains-pair? word l r)
     (cond
         [(< (length word) 2) #f]
-        [(and (sound-has-prop? (first word) l) (sound-has-prop? (second word) r)) #t]
+        [(and (part-has-prop? (first word) l) (part-has-prop? (second word) r)) #t]
         [else (contains-pair? (rest word) l r)]))
 
-;; each-followed-by-one-of? : List Sound, Ortho | GroupName, List (Ortho | GroupName) -> Bool
+;; each-followed-by-one-of? : List Sound | List Syllable, Ortho | GroupName | StructName, List (Ortho | GroupName) | List StructName -> Bool
 (define (each-followed-by-one-of? word l rs)
     (cond
-        [(< (length word) 2) (not (sound-has-prop? (first word) l))]
-        [(sound-has-prop? (first word) l)
-         (and (ormap (curry sound-has-prop? (second word)) rs)
+        [(< (length word) 1) #t]
+        [(< (length word) 2) (not (part-has-prop? (first word) l))]
+        [(part-has-prop? (first word) l)
+         (and (ormap (curry part-has-prop? (second word)) rs)
               (each-followed-by-one-of? (rest (rest word)) l rs))]
         [else (each-followed-by-one-of? (rest word) l rs)]))
 
-;; each-preceded-by-one-of? : List Sound, Ortho | GroupName, List (Ortho | GroupName) -> Bool
+;; each-preceded-by-one-of? : List Sound | List Syllable, Ortho | GroupName | StructName, List (Ortho | GroupName) | List StructName -> Bool
 (define (each-preceded-by-one-of? word l rs)
     (cond
         [(< (length word) 2) #t]
-        [(sound-has-prop? (second word) l)
-         (and (ormap (curry sound-has-prop? (first word)) rs)
+        [(part-has-prop? (second word) l)
+         (and (ormap (curry part-has-prop? (first word)) rs)
               (each-preceded-by-one-of? (rest (rest word)) l rs))]
         [else (each-preceded-by-one-of? (rest word) l rs)]))
 
+;; make-word-rule : (List Syll -> Bool) -> (List Sound -> Bool)
+(define (make-word-rule rule)
+    (lambda (w) (rule (syllable-word->sound-word w))))
+
 (define (never-starts-word args word)
     (for/and ([s (in-list args)])
-        (not (sound-has-prop? (first word) s))))
+        (not (part-has-prop? (first word) s))))
 
 (define (never-ends-word args word)
     (for/and ([s (in-list args)])
-        (not (sound-has-prop? (last word) s))))
+        (not (part-has-prop? (last word) s))))
 
 (define (never-followed-by l-args r-args word)
     (for/and ([l (in-list l-args)])
