@@ -10,6 +10,7 @@
 (struct syllable (struct sounds) #:transparent)
 
 (define (read-syntax path port)
+    (displayln "Parsing...")
     (define parse-tree (parse path (make-tokenizer port path)))
     `(module trinity-mod racket ,(datum->syntax #f (interpret (syntax->datum parse-tree)))))
 
@@ -23,38 +24,18 @@
          (define structures (get-structures structs))
          (define rule-funcs (make-rules rules))
          (define config (get-config gen))
-         (generate config structures categories rule-funcs)
-         #t]))
+         (displayln "Generating...")
+         (generate config structures categories rule-funcs)]))
 
 ;; get-categories : Syntax -> Hash GroupName (Roulette Ortho)
 (define (get-categories stx)
-    (define (get-unspecified split)
-        (cond
-            [(and (> (length split) 1) (string? (first (first split))))
-             (first split)]
-            [(> (length split) 1)
-             (second split)]
-            [(string? (first (first split)))
-             (first split)]
-            [else empty]))
-    
-    (define (get-specified split)
-        (cond
-            [(and (> (length split) 1) (string? (first (first split))))
-             (second split)]
-            [(> (length split) 1)
-             (first split)]
-            [(string? (first (first split)))
-             empty]
-            [else (first split)]))
-
     ;; get-category : Syntax -> (GroupName, Roulette Ortho)
     (define (get-category stx)
         (match stx
             [(list 't-category group-name sounds ...)
              (define split (group-by pair? (map get-category-sound sounds)))
-             (define specified (get-specified split))
-             (define unspecified (get-unspecified split))
+             (define specified (get-specified-by string? split))
+             (define unspecified (get-unspecified-by string? split))
              (cons group-name (make-partial-roulette specified unspecified))]))
     
     ;; get-category-sound : Syntax -> Ortho | (Ortho, Decimal)
@@ -71,26 +52,6 @@
 
 ;; get-structures : Syntax -> Roulette (StructName, Structure)
 (define (get-structures stx)
-    (define (get-unspecified split)
-        (cond
-            [(and (> (length split) 1) (list? (first (first split))))
-             (first split)]
-            [(> (length split) 1)
-             (second split)]
-            [(list? (first (first split)))
-             (first split)]
-            [else empty]))
-    
-    (define (get-specified split)
-        (cond
-            [(and (> (length split) 1) (list? (first (first split))))
-             (second split)]
-            [(> (length split) 1)
-             (first split)]
-            [(list? (first (first split)))
-             empty]
-            [else (first split)]))
-
     ;; get-structure : Syntax -> List Structure | (List (StructName, Structure), Decimal)
     (define (get-structure stx)
         (match stx
@@ -102,8 +63,8 @@
     (match stx
         [(list 't-structures structs ...)
          (define split (group-by list? (map get-structure structs)))
-         (define specified (get-specified split))
-         (define unspecified (get-unspecified split))
+         (define specified (get-specified-by list? split))
+         (define unspecified (get-unspecified-by list? split))
          (make-partial-roulette specified unspecified)]))
 
 (define (make-rules stx)
@@ -189,12 +150,16 @@
     (random-seed (config-seed config))
 
     (define words (generate-words config structs freqs rules))
+    (define string-words (map syllable-word->string-word words))
 
     ;(displayln (map syllable-word->string-word words))
     (define out (open-output-file "./generated.txt" #:exists 'replace))
-    (for ([l (in-list words)])
-        (displayln (syllable-word->string-word l) out))
-    (close-output-port out))
+    (for ([l (in-list string-words)])
+        (displayln l out))
+    (close-output-port out)
+    
+    (displayln "Generated words successfully")
+    (void))
 
 ;; generate-words : Config, Roulette Structure, Hash GroupName (Roulette Ortho), List Rule -> List (List Sound)
 (define (generate-words config structs freqs rules)
@@ -243,6 +208,28 @@
 ;; sound-word->string-word : List Sound -> String
 (define (sound-word->string-word sw)
     (string-append* (map sound-ortho sw)))
+
+;; get-unspecified-by : ('a -> Bool), (List 'a | List 'b, List 'a | List 'b) -> List 'a
+(define (get-unspecified-by pred split)
+    (cond
+        [(and (> (length split) 1) (pred (first (first split))))
+         (first split)]
+        [(> (length split) 1)
+         (second split)]
+        [(pred (first (first split)))
+         (first split)]
+        [else empty]))
+
+;; get-specified-by : ('a -> Bool), (List 'a | List 'b, List 'a | List 'b) -> List 'b
+(define (get-specified-by pred split)
+    (cond
+        [(and (> (length split) 1) (pred (first (first split))))
+         (second split)]
+        [(> (length split) 1)
+         (first split)]
+        [(pred (first (first split)))
+         empty]
+        [else (first split)]))
 
 ;; ================================================
 ;; RULE TEMPLATES
