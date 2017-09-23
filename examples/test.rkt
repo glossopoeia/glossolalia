@@ -1,15 +1,15 @@
 #lang trinity
 
-Categories
-----------
+Sounds
+------
 
 @init = k = 50%, d, t = 7%, p = 7%, m, n, l, r
 @nuc = a, e, i, o, u
 @fin = k, t, th, m, n, g, z, s
 
 
-Structures
-----------
+Syllables
+---------
 
 $init = @init @nuc @fin
 $no-init = @nuc @fin

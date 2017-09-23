@@ -1,14 +1,14 @@
 #lang trinity
 
-Categories
-----------
+Sounds
+------
 
 @onset = p, t, k, v, r, g
 @short = a, e, i, o, u
 @long  = aa, ee, ii, oo, uu, ie, ia, io, iu, ei, ea, eo, eu, ai, ae, ao, au, oi, oe, oa, ou, ui, ue, ua, uo
 
-Structures
-----------
+Syllables
+---------
 
 $one   = @short
 $two   = @long

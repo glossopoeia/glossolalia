@@ -2,11 +2,11 @@
 
 t-file : /t-star-newl t-categories t-structures t-rules t-generate
 
-t-categories : /"Categories" /t-plus-newl ([t-category] /t-star-newl)+
+t-categories : /"Sounds" /t-plus-newl ([t-category] /t-star-newl)+
 t-category   : GROUP-NAME /"=" t-cat-sound (/"," t-cat-sound)* /NEWLINE
 t-cat-sound  : SOUND-NAME [/"=" PERCENTAGE]
 
-t-structures     : /"Structures" /t-plus-newl ((t-structure | t-structure-perc) /t-star-newl)+
+t-structures     : /"Syllables" /t-plus-newl ((t-structure | t-structure-perc) /t-star-newl)+
 t-structure      : STRUCTURE-NAME /"=" GROUP-NAME+ /NEWLINE
 t-structure-perc : STRUCTURE-NAME /"=" GROUP-NAME+ /"=" PERCENTAGE /NEWLINE
 

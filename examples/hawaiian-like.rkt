@@ -1,8 +1,8 @@
 #lang trinity
 
 
-Categories
-----------
+Sounds
+------
 
 -- Note that this analysis of Hawaiian treats (short and long) vowels and dipthongs as separate phonemes.
 -- This doesn't have a lot of bearing on the generation, but it does make construction of the syllable
@@ -15,8 +15,8 @@ Categories
 @dipth = iu, ou, au, eu, ou, ei, ai, ao, ae, ōu, ēi, āu, āi, āo, āe
 
 
-Structures
-----------
+Syllables
+---------
 
 -- Adding these percentages here keeps down on the number of syllables in the average word that have no consonant.
 -- Otherwise we can end up with a lot of words have 3 to 4 times as many vowels as consonants, and even
