@@ -29,6 +29,6 @@
         [(:seq "@" (:+ (:or alphabetic "-")))
          (token 'GROUP-NAME (string->symbol lexeme))]
         [(:seq "$" (:+ (:or alphabetic "-")))
-         (token 'STRUCTURE-NAME (string->symbol lexeme))]))
+         (token 'SYLLABLE-NAME (string->symbol lexeme))]))
 
 (provide trinity-lexer)

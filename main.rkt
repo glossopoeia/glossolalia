@@ -7,10 +7,11 @@
 
 (struct config (seed count word-len-dist) #:transparent)
 (struct sound (ortho group) #:transparent)
-(struct syllable (struct sounds) #:transparent)
+(struct syllable (name sounds) #:transparent)
 
 (define (read-syntax path port)
     (displayln "Parsing...")
+    (flush-output)
     (define parse-tree (parse path (make-tokenizer port path)))
     `(module trinity-mod racket ,(datum->syntax #f (interpret (syntax->datum parse-tree)))))
 
@@ -19,13 +20,14 @@
 
 (define (interpret stx)
     (match stx
-        [(list 't-file cats structs rules gen)
+        [(list 't-file cats sylls rules gen)
          (define categories (get-categories cats))
-         (define structures (get-structures structs))
+         (define syllable-defs (get-syllables sylls (hash-keys categories)))
          (define rule-funcs (make-rules rules))
          (define config (get-config gen))
          (displayln "Generating...")
-         (generate config structures categories rule-funcs)]))
+         (flush-output)
+         (generate config syllable-defs categories rule-funcs)]))
 
 ;; get-categories : Syntax -> Hash GroupName (Roulette Ortho)
 (define (get-categories stx)
@@ -50,19 +52,31 @@
         [(list 't-categories cats ...)
          (make-immutable-hash (map get-category cats))]))
 
-;; get-structures : Syntax -> Roulette (StructName, Structure)
-(define (get-structures stx)
-    ;; get-structure : Syntax -> List Structure | (List (StructName, Structure), Decimal)
-    (define (get-structure stx)
+;; get-syllables : Syntax, List GroupName -> Roulette (SyllableName, List GroupName)
+(define (get-syllables stx cat-names)
+    ;; warn-undefined : List GroupName -> Void
+    (define (check-undefined syll-name groups)
+        (for ([name (in-list groups)]
+              #:when (not (member name cat-names)))
+            (error 'get-syllables (string-append
+                                    "undefined group name '"
+                                    (symbol->string name)
+                                    "' found in syllable definition '"
+                                    (symbol->string syll-name) "'"))))
+
+    ;; get-syllable : Syntax -> List (List GroupName) | (List (SyllableName, List GroupName), Decimal)
+    (define (get-syllable stx)
         (match stx
-            [(list 't-structure struct-name groups ...)
-             (cons struct-name groups)]
-            [(list 't-structure-perc struct-name groups ... freq)
-             (cons (cons struct-name groups) freq)]))
+            [(list 't-syllable syll-name groups ...)
+             (check-undefined syll-name groups)
+             (cons syll-name groups)]
+            [(list 't-syllable-perc syll-name groups ... freq)
+             (check-undefined syll-name groups)
+             (cons (cons syll-name groups) freq)]))
     
     (match stx
-        [(list 't-structures structs ...)
-         (define split (group-by list? (map get-structure structs)))
+        [(list 't-syllables sylls ...)
+         (define split (group-by list? (map get-syllable sylls)))
          (define specified (get-specified-by list? split))
          (define unspecified (get-unspecified-by list? split))
          (make-partial-roulette specified unspecified)]))
@@ -145,11 +159,11 @@
         [(list 't-generate items ...)
          (config (get-seed items) (get-count items) (get-word-len-dist items))]))
 
-;; generate : Config, Roulette Structure, Hash GroupName (Roulette Ortho), List Rule -> Void
-(define (generate config structs freqs rules)
+;; generate : Config, Roulette (List GroupName), Hash GroupName (Roulette Ortho), List Rule -> Void
+(define (generate config sylls freqs rules)
     (random-seed (config-seed config))
 
-    (define words (generate-words config structs freqs rules))
+    (define words (generate-words config sylls freqs rules))
     (define string-words (map syllable-word->string-word words))
 
     ;(displayln (map syllable-word->string-word words))
@@ -158,30 +172,32 @@
         (displayln l out))
     (close-output-port out)
     
-    (displayln "Generated words successfully")
+    (displayln "Generated words successfully.")
     (void))
 
-;; generate-words : Config, Roulette Structure, Hash GroupName (Roulette Ortho), List Rule -> List (List Sound)
-(define (generate-words config structs freqs rules)
+;; generate-words : Config, Roulette (List GroupName), Hash GroupName (Roulette Ortho), List Rule -> List (List Sound)
+(define (generate-words config sylls freqs rules)
     (define syllable-dist (config-word-len-dist config))
     (for/fold ([words (list)])
               ([i (in-range (config-count config))])
-              (append words (list (generate-word-under-rules words syllable-dist structs freqs rules)))))
+              (append words (list (generate-word-under-rules words syllable-dist sylls freqs rules)))))
 
-;; generate-word-under-rules : List (List Sound), Distribution, Roulette Structure, Hash GroupName (Roulette Ortho), List Rule -> List Sound
-(define (generate-word-under-rules existing syllable-dist structs freqs rules)
-    (define maybe (generate-word syllable-dist structs freqs))
+;; generate-word-under-rules : List (List Sound), Distribution, Roulette (List GroupName), Hash GroupName (Roulette Ortho), List Rule -> List Sound
+(define (generate-word-under-rules existing syllable-dist sylls freqs rules)
+    (define maybe (generate-word syllable-dist sylls freqs))
     (if (and (obey-rules rules maybe) (not (member maybe existing)))
         maybe
-        (generate-word-under-rules existing syllable-dist structs freqs rules)))
+        (generate-word-under-rules existing syllable-dist sylls freqs rules)))
 
-;; generate-word : Distribution, Roulette Structure, Hash GroupName (Roulette Ortho) -> List Syllable
-(define (generate-word syllable-dist structs freqs)
+;; generate-word : Distribution, Roulette (List GroupName), Hash GroupName (Roulette Ortho) -> List Syllable
+(define (generate-word syllable-dist sylls freqs)
+    (define (generate-sounds gs)
+        (for/list ([p (in-list gs)])
+            (sound (sample-roulette (hash-ref freqs p)) p)))
+
     (define (generate-syllable)
-        (define syll (sample-roulette structs))
-        (syllable (first syll)
-                  (for/list ([p (in-list (rest syll))])
-                    (sound (sample-roulette (hash-ref freqs p)) p))))
+        (define syll (sample-roulette sylls))
+        (syllable (first syll) (generate-sounds (rest syll))))
 
     (define word-len (floor (sample syllable-dist)))
     (for/list ([i (in-range word-len)])
@@ -249,11 +265,11 @@
         (sound-has-group? sound orth-or-group)
         (sound-has-ortho? sound orth-or-group)))
 
-;; syllable-has-prop? : Syllable, StructName -> Bool
-(define (syllable-has-prop? syll struct)
-    (symbol=? struct (syllable-struct syll)))
+;; syllable-has-prop? : Syllable, SyllableName -> Bool
+(define (syllable-has-prop? syll syll-name)
+    (symbol=? syll-name (syllable-name syll)))
 
-;; part-has-prop? : Syllable | Sound, StructName | Ortho | GroupName -> Bool
+;; part-has-prop? : Syllable | Sound, SyllableName | Ortho | GroupName -> Bool
 (define (part-has-prop? part prop)
     (if (syllable? part)
         (syllable-has-prop? part prop)
@@ -273,11 +289,11 @@
         (sound-word-has-group? word orth-or-group)
         (sound-word-has-ortho? word orth-or-group)))
 
-;; syllable-word-has-prop? : List Syllable, StructName -> Bool
-(define (syllable-word-has-prop? word struct)
-    (memf (lambda (s) (symbol=? (syllable-struct s) struct)) word))
+;; syllable-word-has-prop? : List Syllable, SyllableName -> Bool
+(define (syllable-word-has-prop? word syll-name)
+    (memf (lambda (s) (symbol=? (syllable-name s) syll-name)) word))
 
-;; word-has-prop? : List Sound | List Syllable, Ortho | GroupName | StructName -> Bool
+;; word-has-prop? : List Sound | List Syllable, Ortho | GroupName | SyllableName -> Bool
 (define (word-has-prop? word prop)
     (cond
         [(empty? word) #f]
@@ -286,14 +302,14 @@
         [else
          (sound-word-has-prop? word prop)]))
 
-;; contains-pair? : List Sound | List Syllable, Ortho | GroupName | StructName, Ortho | GroupName | StructName -> Bool
+;; contains-pair? : List Sound | List Syllable, Ortho | GroupName | SyllableName, Ortho | GroupName | SyllableName -> Bool
 (define (contains-pair? word l r)
     (cond
         [(< (length word) 2) #f]
         [(and (part-has-prop? (first word) l) (part-has-prop? (second word) r)) #t]
         [else (contains-pair? (rest word) l r)]))
 
-;; each-followed-by-one-of? : List Sound | List Syllable, Ortho | GroupName | StructName, List (Ortho | GroupName) | List StructName -> Bool
+;; each-followed-by-one-of? : List Sound | List Syllable, Ortho | GroupName | SyllableName, List (Ortho | GroupName) | List SyllableName -> Bool
 (define (each-followed-by-one-of? word l rs)
     (cond
         [(< (length word) 1) #t]
@@ -303,7 +319,7 @@
               (each-followed-by-one-of? (rest (rest word)) l rs))]
         [else (each-followed-by-one-of? (rest word) l rs)]))
 
-;; each-preceded-by-one-of? : List Sound | List Syllable, Ortho | GroupName | StructName, List (Ortho | GroupName) | List StructName -> Bool
+;; each-preceded-by-one-of? : List Sound | List Syllable, Ortho | GroupName | SyllableName, List (Ortho | GroupName) | List SyllableName -> Bool
 (define (each-preceded-by-one-of? word l rs)
     (cond
         [(< (length word) 2) #t]
