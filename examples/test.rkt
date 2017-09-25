@@ -20,20 +20,6 @@ Rules
 
 k never-starts-word
 $no-init only-followed-by $init
--- k never-followed-by g
--- s never-followed-by z
--- a, o never-in-same-word-as i, u
-
--- LIST OF RULES : ARITIES
--- never-followed-by : 2
--- never-preceded-by : 2
--- never-in-same-word-as : 2
--- always-followed-by : 2
--- always-preceded-by : 2
--- never-starts-word : 1
--- never-ends-word : 1
--- only-starts-word : 1
--- only-ends-word : 1
 
 
 Generate
