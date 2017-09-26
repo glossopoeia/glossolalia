@@ -13,7 +13,7 @@
     (displayln "Parsing...")
     (flush-output)
     (define parse-tree (parse path (make-tokenizer port path)))
-    `(module trinity-mod racket ,(datum->syntax #f (interpret (syntax->datum parse-tree)))))
+    `(module glossolalia-mod racket ,(datum->syntax #f (interpret (syntax->datum parse-tree)))))
 
 (module+ reader
     (provide read-syntax))

@@ -5,7 +5,7 @@
 (define (read-syntax path port)
   (define tokens (apply-tokenizer make-tokenizer port))
   (strip-bindings
-   #`(module trinity-tokens-mod trinity/tokenize-only
+   #`(module glossolalia-tokens-mod glossolalia/tokenize-only
        #,@tokens)))
 (module+ reader (provide read-syntax))
 

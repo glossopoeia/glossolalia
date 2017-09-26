@@ -8,7 +8,7 @@
            (string->number (string-append no-percent ".0")))
         100))
 
-(define trinity-lexer
+(define glossolalia-lexer
     (lexer-srcloc
         [(eof) (return-without-srcloc eof)]
         [(:or "\n" "\r\n") (token 'NEWLINE lexeme)]
@@ -31,4 +31,4 @@
         [(:seq "$" (:+ (:or alphabetic "-")))
          (token 'SYLLABLE-NAME (string->symbol lexeme))]))
 
-(provide trinity-lexer)
+(provide glossolalia-lexer)

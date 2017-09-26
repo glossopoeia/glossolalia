@@ -6,7 +6,7 @@
 (define (read-syntax path port)
   (define parse-tree (parse path (make-tokenizer port path)))
   (strip-context
-   #`(module trinity-parser-mod trinity/parser-only
+   #`(module glossolalia-parser-mod glossolalia/parser-only
        #,parse-tree)))
 (module+ reader (provide read-syntax))
 

@@ -4,7 +4,7 @@
 (define (make-tokenizer ip [path #f])
   (port-count-lines! ip)
   (lexer-file-path path)
-  (define (next-token) (trinity-lexer ip))
+  (define (next-token) (glossolalia-lexer ip))
   next-token)
 
 (provide make-tokenizer)

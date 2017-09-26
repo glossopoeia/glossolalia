@@ -1,9 +1,13 @@
 #lang info
-(define collection "trinity")
+(define collection "glossolalia")
 (define deps '("base"
-               "rackunit-lib"))
+               "rackunit-lib"
+               "brag"
+               "beautiful-racket"
+               "beautiful-racket-lib"
+               "br-parser-tools-lib"))
 (define build-deps '("scribble-lib" "racket-doc"))
-(define scribblings '(("scribblings/trinity.scrbl" ())))
+(define scribblings '(("scribblings/glossolalia.scrbl" ())))
 (define pkg-desc "A language for generating words in constructed languages")
-(define version "0.0")
-(define pkg-authors '(gamec))
+(define version "1.0")
+(define pkg-authors '(robkleffner))

@@ -1,4 +1,4 @@
-#lang trinity
+#lang glossolalia
 
 Sounds
 ------
