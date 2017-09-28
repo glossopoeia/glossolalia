@@ -10,7 +10,7 @@
 (struct syllable (name sounds) #:transparent)
 
 (define (read-syntax path port)
-    (displayln "Parsing...")
+    (displayln "Parsing..." (current-output-port))
     (flush-output)
     (define parse-tree (parse path (make-tokenizer port path)))
     `(module glossolalia-mod racket ,(datum->syntax #f (interpret (syntax->datum parse-tree)))))
@@ -35,10 +35,7 @@
     (define (get-category stx)
         (match stx
             [(list 't-category group-name sounds ...)
-             (define split (group-by pair? (map get-category-sound sounds)))
-             (define specified (get-specified-by string? split))
-             (define unspecified (get-unspecified-by string? split))
-             (cons group-name (make-partial-roulette specified unspecified))]))
+             (cons group-name (make-partial-roulette-mixed (map get-category-sound sounds)))]))
     
     ;; get-category-sound : Syntax -> Ortho | (Ortho, Decimal)
     (define (get-category-sound stx)
@@ -52,7 +49,7 @@
         [(list 't-categories cats ...)
          (make-immutable-hash (map get-category cats))]))
 
-;; get-syllables : Syntax, List GroupName -> Roulette (SyllableName, List GroupName)
+;; get-syllables : Syntax, List GroupName -> Roulette (SyllableName, Roulette (List GroupName))
 (define (get-syllables stx cat-names)
     ;; warn-undefined : List GroupName -> Void
     (define (check-undefined syll-name groups)
@@ -64,23 +61,31 @@
                                     "' found in syllable definition '"
                                     (symbol->string syll-name) "'"))))
 
-    ;; get-syllable : Syntax -> List (List GroupName) | (List (SyllableName, List GroupName), Decimal)
+    ;; get-syllable : Syntax -> (SyllableName, Roulette (List GroupName)) | ((SyllableName, Roulette (List GroupName)), Decimal)
     (define (get-syllable stx)
         (match stx
-            [(list 't-syllable syll-name groups ...)
+            [(list 't-syllable syll-name variants ...)
+             (cons syll-name (make-partial-roulette-mixed (map (curry get-variant syll-name) variants)))]
+            [(list 't-syllable-perc syll-name freq variants ...)
+             (cons
+                (cons syll-name (make-partial-roulette-mixed (map (curry get-variant syll-name) variants)))
+                freq)]))
+    
+    ;; get-variant : Syntax -> List GroupName | (List GroupName, Decimal)
+    (define (get-variant syll-name stx)
+        (match stx
+            [(list 't-syll-con groups ...)
              (check-undefined syll-name groups)
-             (cons syll-name groups)]
-            [(list 't-syllable-perc syll-name groups ... freq)
+             groups]
+            [(list 't-syll-con-perc groups ... freq)
              (check-undefined syll-name groups)
-             (cons (cons syll-name groups) freq)]))
+             (cons groups freq)]))
     
     (match stx
         [(list 't-syllables sylls ...)
-         (define split (group-by list? (map get-syllable sylls)))
-         (define specified (get-specified-by list? split))
-         (define unspecified (get-unspecified-by list? split))
-         (make-partial-roulette specified unspecified)]))
+         (make-partial-roulette-mixed (map get-syllable sylls))]))
 
+;; make-rules : Syntax -> (List Sound -> Bool, List Sound -> List Sound)
 (define (make-rules stx)
     (define rule-templates (hash
         'never-starts-word          never-starts-word
@@ -94,7 +99,13 @@
         'only-starts-word           only-starts-word
         'only-ends-word             only-ends-word
         'only-followed-by           only-followed-by
-        'only-preceded-by           only-preceded-by))
+        'only-preceded-by           only-preceded-by
+        'becomes-before             becomes-before
+        'becomes-after              becomes-after
+        'prepends-before            prepends-before
+        'prepends-after             prepends-after
+        'appends-before             appends-before
+        'appends-after              appends-after))
     
     (define (get-rule-args stx)
         (match stx
@@ -103,28 +114,48 @@
             [(list 't-srule-args args ...)
              args]))
 
+    ;; make-rule : Syntax -> (Bool, (List Sound -> Bool) | (List Sound -> List Sound))
+    ;; If the first part of the pair is true, the rule is a filter.
+    ;; If the first part of the pair is false, the rule is a mapper.
     (define (make-rule stx)
         (match stx
             [(list 't-unary-rule args name)
-             (make-word-rule
-                (curry (hash-ref rule-templates name)
-                       (get-rule-args args)))]
+             (cons #t
+                (make-word-rule
+                    (curry (hash-ref rule-templates name)
+                           (get-rule-args args))))]
             [(list 't-binary-rule l-args name r-args)
-             (make-word-rule
-                (curry (hash-ref rule-templates name)
+             (cons #t
+                (make-word-rule
+                    (curry (hash-ref rule-templates name)
+                           (get-rule-args l-args)
+                           (get-rule-args r-args))))]
+            [(list 't-ternary-rule l-args name m-arg ind r-args)
+             (define rule-name (string->symbol (string-append (symbol->string name) "-" (symbol->string ind))))
+             (cons #f
+                (curry (hash-ref rule-templates rule-name)
                        (get-rule-args l-args)
+                       m-arg
                        (get-rule-args r-args)))]
             [(list 't-unary-srule args name)
-             (curry (hash-ref rule-templates name)
-                    (get-rule-args args))]
+             (cons #t
+                (curry (hash-ref rule-templates name)
+                       (get-rule-args args)))]
             [(list 't-binary-srule l-args name r-args)
-             (curry (hash-ref rule-templates name)
-                    (get-rule-args l-args)
-                    (get-rule-args r-args))]))
+             (cons #t
+                (curry (hash-ref rule-templates name)
+                       (get-rule-args l-args)
+                       (get-rule-args r-args)))]))
 
     (match stx
         [(list 't-rules rules ...)
-         (map make-rule rules)]))
+         (define-values (filters transformers)
+            (for/fold ([filters empty] [transformers empty])
+                      ([item (in-list (map make-rule rules))])
+                (if (car item)
+                    (values (cons (cdr item) filters) transformers)
+                    (values filters (cons (cdr item) transformers)))))
+         (cons filters transformers)]))
 
 ;; get-config : Syntax -> Config
 (define (get-config stx)
@@ -159,37 +190,40 @@
         [(list 't-generate items ...)
          (config (get-seed items) (get-count items) (get-word-len-dist items))]))
 
-;; generate : Config, Roulette (List GroupName), Hash GroupName (Roulette Ortho), List Rule -> Void
+;; generate : Config, Roulette (SyllableName, Roulette (List GroupName)), Hash GroupName (Roulette Ortho), (List Filter, List Transformer) -> Void
 (define (generate config sylls freqs rules)
     (random-seed (config-seed config))
 
-    (define words (generate-words config sylls freqs rules))
-    (define string-words (map syllable-word->string-word words))
+    (define words (generate-words config sylls freqs (car rules) (cdr rules)))
+    (define string-words (map sound-word->string-word words))
 
-    ;(displayln (map syllable-word->string-word words))
+    ;(displayln (map sound-word->string-word words))
     (define out (open-output-file "./generated.txt" #:exists 'replace))
     (for ([l (in-list string-words)])
         (displayln l out))
     (close-output-port out)
     
-    (displayln "Generated words successfully.")
+    (displayln "Generated words successfully, check 'generated.txt' for the results.")
     (void))
 
-;; generate-words : Config, Roulette (List GroupName), Hash GroupName (Roulette Ortho), List Rule -> List (List Sound)
-(define (generate-words config sylls freqs rules)
+;; generate-words : Config, Roulette (SyllableName, Roulette (List GroupName)), Hash GroupName (Roulette Ortho), List Filter, List Transformer -> List (List Sound)
+(define (generate-words config sylls freqs filters transformers)
     (define syllable-dist (config-word-len-dist config))
     (for/fold ([words (list)])
               ([i (in-range (config-count config))])
-              (append words (list (generate-word-under-rules words syllable-dist sylls freqs rules)))))
+              (append words (list (generate-word-under-rules words syllable-dist sylls freqs filters transformers)))))
 
-;; generate-word-under-rules : List (List Sound), Distribution, Roulette (List GroupName), Hash GroupName (Roulette Ortho), List Rule -> List Sound
-(define (generate-word-under-rules existing syllable-dist sylls freqs rules)
+;; generate-word-under-rules : List (List Sound), Distribution, Roulette (SyllableName, Roulette (List GroupName)), Hash GroupName (Roulette Ortho), List Filter, List Transformer -> List Sound
+(define (generate-word-under-rules existing syllable-dist sylls freqs filters transformers)
     (define maybe (generate-word syllable-dist sylls freqs))
-    (if (and (obey-rules rules maybe) (not (member maybe existing)))
-        maybe
-        (generate-word-under-rules existing syllable-dist sylls freqs rules)))
+    (if (obey-rules filters maybe)
+        (let ([transformed (apply-transformers transformers (syllable-word->sound-word maybe))])
+            (if (not (member transformed existing))
+                transformed
+                (generate-word-under-rules existing syllable-dist sylls freqs filters transformers)))
+        (generate-word-under-rules existing syllable-dist sylls freqs filters transformers)))
 
-;; generate-word : Distribution, Roulette (List GroupName), Hash GroupName (Roulette Ortho) -> List Syllable
+;; generate-word : Distribution, Roulette (SyllableName, Roulette (List GroupName)), Hash GroupName (Roulette Ortho) -> List Syllable
 (define (generate-word syllable-dist sylls freqs)
     (define (generate-sounds gs)
         (for/list ([p (in-list gs)])
@@ -197,7 +231,7 @@
 
     (define (generate-syllable)
         (define syll (sample-roulette sylls))
-        (syllable (first syll) (generate-sounds (rest syll))))
+        (syllable (car syll) (generate-sounds (sample-roulette (cdr syll)))))
 
     (define word-len (floor (sample syllable-dist)))
     (for/list ([i (in-range word-len)])
@@ -211,7 +245,13 @@
 (module+ test
     (check-true (obey-rules (list) (list)))
     (check-true (obey-rules (list (lambda (x) #t)) (list (sound "a" "h"))))
-    (check-false (obey-rules (list (lambda (x) #f)) (list (sound "b" "h")))))
+    (check-false (obey-rules (list (lambda (x) #t) (lambda (x) #f)) (list (sound "b" "h")))))
+
+;; apply-transformers : List (List Sound -> List Sound), List Sound -> List Sound
+(define (apply-transformers rules word)
+    (for/fold ([new word])
+              ([transform (in-list rules)])
+        (transform new)))
 
 ;; syllable-word->string-word : List Syllable -> String
 (define (syllable-word->string-word sw)
@@ -224,28 +264,6 @@
 ;; sound-word->string-word : List Sound -> String
 (define (sound-word->string-word sw)
     (string-append* (map sound-ortho sw)))
-
-;; get-unspecified-by : ('a -> Bool), (List 'a | List 'b, List 'a | List 'b) -> List 'a
-(define (get-unspecified-by pred split)
-    (cond
-        [(and (> (length split) 1) (pred (first (first split))))
-         (first split)]
-        [(> (length split) 1)
-         (second split)]
-        [(pred (first (first split)))
-         (first split)]
-        [else empty]))
-
-;; get-specified-by : ('a -> Bool), (List 'a | List 'b, List 'a | List 'b) -> List 'b
-(define (get-specified-by pred split)
-    (cond
-        [(and (> (length split) 1) (pred (first (first split))))
-         (second split)]
-        [(> (length split) 1)
-         (first split)]
-        [(pred (first (first split)))
-         empty]
-        [else (first split)]))
 
 ;; ================================================
 ;; RULE TEMPLATES
@@ -328,6 +346,22 @@
               (each-preceded-by-one-of? (rest (rest word)) l rs))]
         [else (each-preceded-by-one-of? (rest word) l rs)]))
 
+;; replace-right : List Sound, Ortho | GroupName, Ortho | GroupName, Ortho | GroupName, Ortho | GroupName -> List Sound
+(define (replace-right word pl pr newr)
+    (cond
+        [(< (length word) 2) word]
+        [(and (sound-has-prop? (first word) pl) (sound-has-prop? (second word) pr))
+         (list* (first word) newr (replace-right (rest (rest word)) pl pr newr))]
+        [else (cons (first word) (replace-right (rest word) pl pr newr))]))
+
+;; replace-left : List Sound, Ortho | GroupName, Ortho | GroupName, Ortho | GroupName, Ortho | GroupName -> List Sound
+(define (replace-left word pl pr newl)
+    (cond
+        [(< (length word) 2) word]
+        [(and (sound-has-prop? (first word) pl) (sound-has-prop? (second word) pr))
+         (list* newl (second word) (replace-left (rest (rest word)) pl pr newl))]
+        [else (cons (first word) (replace-left (rest word) pl pr newl))]))
+
 ;; make-word-rule : (List Syll -> Bool) -> (List Sound -> Bool)
 (define (make-word-rule rule)
     (lambda (w) (rule (syllable-word->sound-word w))))
@@ -341,29 +375,30 @@
         (not (part-has-prop? (last word) s))))
 
 (define (never-followed-by l-args r-args word)
-    (for/and ([l (in-list l-args)])
-        (for/and ([r (in-list r-args)])
-            (not (contains-pair? word l r)))))
+    (for*/and ([l (in-list l-args)]
+               [r (in-list r-args)])
+        (not (contains-pair? word l r))))
 
 (define (never-preceded-by l-args r-args word)
-    (for/and ([l (in-list l-args)])
-        (for/and ([r (in-list r-args)])
-            (not (contains-pair? word r l)))))
+    (for*/and ([l (in-list l-args)]
+               [r (in-list r-args)])
+        (not (contains-pair? word r l))))
 
 (define (never-in-same-word-as l-args r-args word)
-    (for/and ([l (in-list l-args)])
-        (define has-left (word-has-prop? word l))
+    (nand
+        (for/and ([l (in-list l-args)])
+            (word-has-prop? word l))
         (for/and ([r (in-list r-args)])
-            (nand has-left (word-has-prop? word r)))))
+            (word-has-prop? word r))))
 
 (define (never-doubled args word)
     (for/and ([l (in-list args)])
         (not (contains-pair? word l l))))
 
 (define (never-adjacent-to l-args r-args word)
-    (for/and ([l (in-list l-args)])
-        (for/and ([r (in-list r-args)])
-            (nor (contains-pair? word l r) (contains-pair? word r l)))))
+    (for*/and ([l (in-list l-args)]
+               [r (in-list r-args)])
+        (nor (contains-pair? word l r) (contains-pair? word r l))))
 
 (define (never-in-middle-of-word args word)
     (for/and ([l (in-list args)])
@@ -388,6 +423,25 @@
         (implies
             (word-has-prop? word l)
             (each-preceded-by-one-of? word l r-args))))
+
+(define (becomes-before target-args dest-arg pos-args word)
+    (define dest (sound dest-arg (void)))
+    (for*/fold ([new word])
+               ([targ (in-list target-args)]
+                [pos (in-list pos-args)])
+        (replace-left new targ pos dest)))
+
+(define (becomes-after target-args dest-arg pos-args word)
+    (define dest (sound dest-arg (void)))
+    (for*/fold ([new word])
+               ([targ (in-list target-args)]
+                [pos (in-list pos-args)])
+        (replace-right new targ pos dest)))
+
+(define (prepends-before target-args dest-arg pos-args word) empty)
+(define (prepends-after target-args dest-arg pos-args word) empty)
+(define (appends-before target-args dest-arg pos-args word) empty)
+(define (appends-after target-args dest-arg pos-args word) empty)
 
 (module+ test
     (define (simple-test-word s)

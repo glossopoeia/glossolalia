@@ -11,15 +11,18 @@
 (define glossolalia-lexer
     (lexer-srcloc
         [(eof) (return-without-srcloc eof)]
-        [(:or "\n" "\r\n") (token 'NEWLINE lexeme)]
         [whitespace (token 'WS #:skip? #t)]
         [(from/to "--" "\n") (token lexeme #:skip? #t)]
-        [(:or "Sounds" "Syllables" "Rules" "Generate" "Seed" "Count" "Longest" "Shortest" "Mode" "," "=")
+        [(:or "Sounds" "Syllables" "Rules" "Configuration" "Seed" "Count" "Longest" "Shortest" "Mode" "," "=" ":" "|")
          (token lexeme lexeme)]
         [(:or "never-starts-word" "never-ends-word" "never-in-middle-of-word" "never-doubled" "only-starts-word" "only-ends-word")
          (token 'UNARY-RULE-NAME (string->symbol lexeme))]
         [(:or "never-followed-by" "never-preceded-by" "never-adjacent-to" "never-in-same-word-as" "only-followed-by" "only-preceded-by")
          (token 'BINARY-RULE-NAME (string->symbol lexeme))]
+        [(:or "becomes" "prepends" "appends" "removes")
+         (token 'TERNARY-RULE-NAME (string->symbol lexeme))]
+        [(:or "before" "after")
+         (token 'TERNARY-INDIRECT (string->symbol lexeme))]
         [(:seq numeric (:? numeric) (:? (:seq "." (:* numeric))) "%")
          (token 'PERCENTAGE (percent-string->number lexeme))]
         [(:+ numeric)

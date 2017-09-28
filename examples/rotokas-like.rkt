@@ -10,18 +10,18 @@ Sounds
 Syllables
 ---------
 
-$one   = @short
-$two   = @long
-$three = @onset @short = 50%
-$four  = @onset @long = 30%
+$one         = @short
+$two         = @long
+$three : 50% = @onset @short
+$four  : 30% = @onset @long
 
 Rules
 -----
 
 @long never-starts-word
 
-Generate
---------
+Configuration
+-------------
 
 Seed    = 9001
 Count   = 100

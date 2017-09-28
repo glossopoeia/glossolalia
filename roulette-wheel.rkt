@@ -5,11 +5,26 @@
     (require rackunit))
 
 (provide
+    make-partial-roulette-mixed
     make-partial-roulette
     make-full-roulette
     sample-roulette)
 
 ;; type Roulette = Hash Any Decimal
+
+;; make-partial-roulette-mixed : List ((Any, Decimal), (Not (Any, Decimal))) -> Roulette
+;; Same as make-partial-roulette, except elements with specified weights are mixed into
+;; the same list as those with unspecified weights. Note that this function cannot distinguish
+;; between a weighted element, and an unweighted element that is a pair in which the second
+;; element is a number: the latter will always be treated as a weighted element.
+(define (make-partial-roulette-mixed mixed)
+    (define-values (weighted unweighted)
+        (for/fold ([weighted empty] [unweighted empty])
+                  ([item (in-list mixed)])
+            (if (and (pair? item) (number? (cdr item)))
+                (values (cons item weighted) unweighted)
+                (values weighted (cons item unweighted)))))
+    (make-partial-roulette weighted unweighted))
 
 ;; make-partial-roulette : List (Any, Decimal), List Any -> Roulette
 ;; Creates an abstract roulette wheel selection data structure from a list of value-weight pairs
@@ -43,8 +58,8 @@
     (cond
         [(empty? items)
          (error 'make-full-roulette "the input list cannot be empty")]
-        [(> (sum-weights items) 1)
-         (error 'make-full-roulette "the sum of the weights in the input must be <= 1")]
+        [(> (sum-weights items) 1.0001)
+         (error 'make-full-roulette (string-append "the sum of the weights in the input must be <= 1, got " (number->string (sum-weights items))))]
         [else
          (make-hash items)]))
 
