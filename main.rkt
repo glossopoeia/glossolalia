@@ -25,7 +25,6 @@
          (define syllable-defs (get-syllables sylls (hash-keys categories)))
          (define rule-funcs (make-rules rules))
          (define config (get-config gen))
-         (displayln rule-funcs)
          (displayln "Generating...")
          (flush-output)
          (generate config syllable-defs categories rule-funcs)]))
