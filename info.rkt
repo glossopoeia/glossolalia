@@ -2,6 +2,7 @@
 (define collection "glossolalia")
 (define deps '("base"
                "rackunit-lib"
+               "math-lib"
                "brag"
                "beautiful-racket"
                "beautiful-racket-lib"
