@@ -40,3 +40,5 @@ y becomes  after sh, ch, j
 
 Configuration
 -------------
+
+Seed = 67
