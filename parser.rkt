@@ -21,7 +21,7 @@ t-rules        : /"Rules" t-rule*
                | t-binary-srule
 t-unary-rule   : t-rule-args UNARY-RULE-NAME
 t-binary-rule  : t-rule-args BINARY-RULE-NAME t-rule-args
-t-ternary-rule : t-rule-args TERNARY-RULE-NAME SOUND-NAME TERNARY-INDIRECT t-rule-args
+t-ternary-rule : t-rule-args TERNARY-RULE-NAME SOUND-NAME* TERNARY-INDIRECT t-rule-args
 t-unary-srule  : t-srule-args UNARY-RULE-NAME
 t-binary-srule : t-srule-args BINARY-RULE-NAME t-srule-args
 t-rule-args    : t-rule-arg (/"," t-rule-arg)*

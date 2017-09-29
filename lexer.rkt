@@ -19,7 +19,7 @@
          (token 'UNARY-RULE-NAME (string->symbol lexeme))]
         [(:or "never-followed-by" "never-preceded-by" "never-adjacent-to" "never-in-same-word-as" "only-followed-by" "only-preceded-by")
          (token 'BINARY-RULE-NAME (string->symbol lexeme))]
-        [(:or "becomes" "prepends" "appends" "removes")
+        [(:or "becomes" "prepends" "appends")
          (token 'TERNARY-RULE-NAME (string->symbol lexeme))]
         [(:or "before" "after")
          (token 'TERNARY-INDIRECT (string->symbol lexeme))]

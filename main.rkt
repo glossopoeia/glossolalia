@@ -25,6 +25,7 @@
          (define syllable-defs (get-syllables sylls (hash-keys categories)))
          (define rule-funcs (make-rules rules))
          (define config (get-config gen))
+         (displayln rule-funcs)
          (displayln "Generating...")
          (flush-output)
          (generate config syllable-defs categories rule-funcs)]))
@@ -130,12 +131,12 @@
                     (curry (hash-ref rule-templates name)
                            (get-rule-args l-args)
                            (get-rule-args r-args))))]
-            [(list 't-ternary-rule l-args name m-arg ind r-args)
+            [(list 't-ternary-rule l-args name m-args ... ind r-args)
              (define rule-name (string->symbol (string-append (symbol->string name) "-" (symbol->string ind))))
              (cons #f
                 (curry (hash-ref rule-templates rule-name)
                        (get-rule-args l-args)
-                       m-arg
+                       (map no-group-sound m-args)
                        (get-rule-args r-args)))]
             [(list 't-unary-srule args name)
              (cons #t
@@ -155,7 +156,7 @@
                 (if (car item)
                     (values (cons (cdr item) filters) transformers)
                     (values filters (cons (cdr item) transformers)))))
-         (cons filters transformers)]))
+         (cons filters (reverse transformers))]))
 
 ;; get-config : Syntax -> Config
 (define (get-config stx)
@@ -253,6 +254,15 @@
               ([transform (in-list rules)])
         (transform new)))
 
+(module+ test
+    (check-equal? (apply-transformers (list (lambda (x) (string-append "a" x))) "bba") "abba")
+    (check-equal?
+        (apply-transformers
+            (list (lambda (x) (string-append "b" x))
+                  (lambda (x) (string-append "a" x)))
+            "ba")
+        "abba"))
+
 ;; syllable-word->string-word : List Syllable -> String
 (define (syllable-word->string-word sw)
     (sound-word->string-word (syllable-word->sound-word sw)))
@@ -346,25 +356,52 @@
               (each-preceded-by-one-of? (rest (rest word)) l rs))]
         [else (each-preceded-by-one-of? (rest word) l rs)]))
 
-;; replace-right : List Sound, Ortho | GroupName, Ortho | GroupName, Ortho | GroupName, Ortho | GroupName -> List Sound
+;; replace-right : List Sound, Ortho | GroupName, Ortho | GroupName, List Sound -> List Sound
 (define (replace-right word pl pr newr)
     (cond
         [(< (length word) 2) word]
         [(and (sound-has-prop? (first word) pl) (sound-has-prop? (second word) pr))
-         (list* (first word) newr (replace-right (rest (rest word)) pl pr newr))]
+         (cons (first word) (append newr (replace-right (rest (rest word)) pl pr newr)))]
         [else (cons (first word) (replace-right (rest word) pl pr newr))]))
 
-;; replace-left : List Sound, Ortho | GroupName, Ortho | GroupName, Ortho | GroupName, Ortho | GroupName -> List Sound
+;; replace-left : List Sound, Ortho | GroupName, Ortho | GroupName, List Sound -> List Sound
 (define (replace-left word pl pr newl)
     (cond
         [(< (length word) 2) word]
         [(and (sound-has-prop? (first word) pl) (sound-has-prop? (second word) pr))
-         (list* newl (second word) (replace-left (rest (rest word)) pl pr newl))]
+         (append newl (cons (second word) (replace-left (rest (rest word)) pl pr newl)))]
         [else (cons (first word) (replace-left (rest word) pl pr newl))]))
+
+;; insert-left : List Sound, Ortho | GroupName, Ortho | GroupName, List Sound -> List Sound
+(define (insert-left word pl pr new)
+    (cond
+        [(< (length word) 2) word]
+        [(and (sound-has-prop? (first word) pl) (sound-has-prop? (second word) pr))
+         (append new (list* (first word) (second word) (insert-left (rest (rest word)) pl pr new)))]
+        [else (cons (first word) (insert-left (rest word) pl pr new))]))
+
+;; insert-right : List Sound, Ortho | GroupName, Ortho | GroupName, List Sound -> List Sound
+(define (insert-right word pl pr new)
+    (cond
+        [(< (length word) 2) word]
+        [(and (sound-has-prop? (first word) pl) (sound-has-prop? (second word) pr))
+         (list* (first word) (second word) (append new (insert-right (rest (rest word)) pl pr new)))]
+        [else (cons (first word) (insert-right (rest word) pl pr new))]))
+
+;; insert-between : List Sound, Ortho | GroupName, Ortho | GroupName, List Sound -> List Sound
+(define (insert-between word pl pr new)
+    (cond
+        [(< (length word) 2) word]
+        [(and (sound-has-prop? (first word) pl) (sound-has-prop? (second word) pr))
+         (cons (first word) (append new (cons (second word) (insert-between (rest (rest word)) pl pr new))))]
+        [else (cons (first word) (insert-between (rest word) pl pr new))]))
 
 ;; make-word-rule : (List Syll -> Bool) -> (List Sound -> Bool)
 (define (make-word-rule rule)
     (lambda (w) (rule (syllable-word->sound-word w))))
+
+;; no-group-sound : Ortho -> Sound
+(define (no-group-sound ortho) (sound ortho (void)))
 
 (define (never-starts-word args word)
     (for/and ([s (in-list args)])
@@ -424,28 +461,45 @@
             (word-has-prop? word l)
             (each-preceded-by-one-of? word l r-args))))
 
-(define (becomes-before target-args dest-arg pos-args word)
-    (define dest (sound dest-arg (void)))
+(define (becomes-before target-args dest-args pos-args word)
     (for*/fold ([new word])
                ([targ (in-list target-args)]
                 [pos (in-list pos-args)])
-        (replace-left new targ pos dest)))
+        (replace-left new targ pos dest-args)))
 
-(define (becomes-after target-args dest-arg pos-args word)
-    (define dest (sound dest-arg (void)))
+(define (becomes-after target-args dest-args pos-args word)
     (for*/fold ([new word])
                ([targ (in-list target-args)]
                 [pos (in-list pos-args)])
-        (replace-right new targ pos dest)))
+        (replace-right new pos targ dest-args)))
 
-(define (prepends-before target-args dest-arg pos-args word) empty)
-(define (prepends-after target-args dest-arg pos-args word) empty)
-(define (appends-before target-args dest-arg pos-args word) empty)
-(define (appends-after target-args dest-arg pos-args word) empty)
+(define (prepends-before target-args dest-args pos-args word)
+    (for*/fold ([new word])
+               ([targ (in-list target-args)]
+                [pos (in-list pos-args)])
+        (insert-left new targ pos dest-args)))
+
+(define (prepends-after target-args dest-args pos-args word)
+    (for*/fold ([new word])
+               ([targ (in-list target-args)]
+                [pos (in-list pos-args)])
+        (insert-between new pos targ dest-args)))
+
+(define (appends-before target-args dest-args pos-args word)
+    (for*/fold ([new word])
+               ([targ (in-list target-args)]
+                [pos (in-list pos-args)])
+        (insert-between new targ pos dest-args)))
+
+(define (appends-after target-args dest-args pos-args word)
+    (for*/fold ([new word])
+               ([targ (in-list target-args)]
+                [pos (in-list pos-args)])
+        (insert-right new pos targ dest-args)))
 
 (module+ test
     (define (simple-test-word s)
-        (map (lambda (c) (sound (string c) "test")) (string->list s)))
+        (map (lambda (c) (sound (string c) (void))) (string->list s)))
 
     (check-true (never-starts-word (list "a" "b") (simple-test-word "hello")))
     (check-false (never-starts-word (list "a" "b") (simple-test-word "all")))
@@ -507,4 +561,23 @@
     
     (check-true (only-preceded-by (list "a") (list "b") (simple-test-word "bat")))
     (check-true (only-preceded-by (list "a") (list "b") (simple-test-word "bed")))
-    (check-false (only-preceded-by (list "a") (list "b") (simple-test-word "cat"))))
+    (check-false (only-preceded-by (list "a") (list "b") (simple-test-word "cat")))
+    
+    (check-equal?
+        (becomes-before (list "a") (list (sound "e" (void))) (list "b") (simple-test-word "abazab"))
+        (simple-test-word "ebazeb"))
+    (check-equal?
+        (becomes-after (list "b") (list (sound "c" (void))) (list "a") (simple-test-word "abebab"))
+        (simple-test-word "acebac"))
+    (check-equal?
+        (prepends-before (list "b") (list (sound "a" (void))) (list "d") (simple-test-word "bdecbdelbt"))
+        (simple-test-word "abdecabdelbt"))
+    (check-equal?
+        (prepends-after (list "b") (list (sound "a" (void))) (list "d") (simple-test-word "dbecdbelbt"))
+        (simple-test-word "dabecdabelbt"))
+    (check-equal?
+        (appends-before (list "b") (list (sound "a" (void))) (list "d") (simple-test-word "bdecbdelbt"))
+        (simple-test-word "badecbadelbt"))
+    (check-equal?
+        (appends-after (list "b") (list (sound "a" (void))) (list "d") (simple-test-word "dbecdbelbt"))
+        (simple-test-word "dbaecdbaelbt")))
