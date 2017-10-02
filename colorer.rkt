@@ -1,7 +1,7 @@
 #lang racket
 
 (require "lexer.rkt" brag/support)
-
+#|
 (provide glossolalia-colorer)
 
 
@@ -36,3 +36,4 @@
                     ['SYLLABLE-NAME 'hash-colon-keyword]
                     [else 'no-color]
             (values val cat #f start end)])))
+|#
