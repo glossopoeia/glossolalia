@@ -422,9 +422,9 @@
 
 (define (never-in-same-word-as l-args r-args word)
     (nand
-        (for/and ([l (in-list l-args)])
+        (for/or ([l (in-list l-args)])
             (word-has-prop? word l))
-        (for/and ([r (in-list r-args)])
+        (for/or ([r (in-list r-args)])
             (word-has-prop? word r))))
 
 (define (never-doubled args word)
@@ -518,6 +518,8 @@
     (check-true (never-in-same-word-as (list "a") (list "i") (simple-test-word "halo")))
     (check-true (never-in-same-word-as (list "a") (list "i") (simple-test-word "mule")))
     (check-false (never-in-same-word-as (list "a") (list "i") (simple-test-word "hail")))
+    (check-false (never-in-same-word-as (list "a" "o") (list "i" "y") (simple-test-word "boy")))
+    (check-false (never-in-same-word-as (list "a" "o" "e") (list "i" "y") (simple-test-word "eby")))
 
     (check-true (never-preceded-by (list "a") (list "b") (simple-test-word "aloe")))
     (check-true (never-preceded-by (list "a") (list "b") (simple-test-word "aberstwyth")))
