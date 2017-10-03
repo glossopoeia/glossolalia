@@ -13,7 +13,7 @@ Sounds
 @coda-one = r, l, m, n, ng, s, sch, p, t, k, b, d, g, f, v, ch
 @coda-two = rl, rm, rn, lm, ln, lng, rs, rp, rt, rk, rb, rd, rg, rf, rch, ls, lsch, lp, lt, lk, lb, ld, lf, lch,
             mz, msch, mp, mf, nz, nsch, nt, nd, nf, ngz, ngk, sp, st, sk, ps, pt, pf, ts, tsch, ks, kt, fs, chs, cht
-@coda-tri = rls, lms, lns, lps, mst, nst, pst, ngkt
+@coda-tri = rls, lms, lns, lps, mst, nst, pst, ngkt, ngst
 @coda-qua = lmst, lnst, ngkst
 
 Syllables

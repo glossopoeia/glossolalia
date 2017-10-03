@@ -22,8 +22,8 @@ k never-starts-word
 $no-init only-followed-by $init
 
 
-Generate
---------
+Configuration
+-------------
 
 Seed = 123456
 Count = 20
