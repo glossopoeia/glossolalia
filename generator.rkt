@@ -208,19 +208,22 @@
 ;; generate-words : Config, Roulette (SyllableName, Roulette (List GroupName)), Hash GroupName (Roulette Ortho), List Filter, List Transformer -> List (List Sound)
 (define (generate-words config sylls freqs filters transformers)
     (define syllable-dist (config-word-len-dist config))
+    (define max-gas 5000)
     (for/fold ([words (list)])
               ([i (in-range (config-count config))])
-              (append words (list (generate-word-under-rules words syllable-dist sylls freqs filters transformers)))))
+              (append words (list (generate-word-under-rules words syllable-dist sylls freqs filters transformers max-gas)))))
 
 ;; generate-word-under-rules : List (List Sound), Distribution, Roulette (SyllableName, Roulette (List GroupName)), Hash GroupName (Roulette Ortho), List Filter, List Transformer -> List Sound
-(define (generate-word-under-rules existing syllable-dist sylls freqs filters transformers)
-    (define maybe (generate-word syllable-dist sylls freqs))
-    (if (obey-rules filters maybe)
-        (let ([transformed (apply-transformers transformers (syllable-word->sound-word maybe))])
-            (if (not (member transformed existing))
-                transformed
-                (generate-word-under-rules existing syllable-dist sylls freqs filters transformers)))
-        (generate-word-under-rules existing syllable-dist sylls freqs filters transformers)))
+(define (generate-word-under-rules existing syllable-dist sylls freqs filters transformers gas-left)
+    (if (<= gas-left 0)
+        (error 'generate-word "Ran out of gas while trying to generate a word, too many failed attempts!")
+        (let ([maybe (generate-word syllable-dist sylls freqs)])
+            (if (obey-rules filters maybe)
+                (let ([transformed (apply-transformers transformers (syllable-word->sound-word maybe))])
+                    (if (not (member transformed existing))
+                        transformed
+                        (generate-word-under-rules existing syllable-dist sylls freqs filters transformers (sub1 gas-left))))
+                (generate-word-under-rules existing syllable-dist sylls freqs filters transformers (sub1 gas-left))))))
 
 ;; generate-word : Distribution, Roulette (SyllableName, Roulette (List GroupName)), Hash GroupName (Roulette Ortho) -> List Syllable
 (define (generate-word syllable-dist sylls freqs)
