@@ -29,14 +29,162 @@
         </header>
 
         <section>
-            <h3>Syntactic Elements</h3>
+            <h3>Usage</h3>
+            <hr>
+            <h4>Command Line</h4>
+            <p>If you have Racket installed, you can run any of your Glossolalia files from whichever directory they are in:</p>
+            <code>racket example_lang.rkt</code>
+            <p>If you are using the prepackaged executable, you will have to add it to your path before being able to do the same, or
+            put all your language files in the same directory as the executable. It can be run on Windows with:</p>
+            <code>./glossolalia.exe example_lang.rkt</code>
+
+            <h4>Dr. Racket IDE</h4>
+            <p>Just open up your file in the Dr. Racket IDE and hit the 'Run' button.</p>
         </section>
+
         <section>
-            <h3>Layout</h3>
+            <h3>Syntax</h3>
+            <hr>
+            <p>Each Glossolalia file is divided into four sections: the <em>sounds</em> section; the <em>syllables</em> section;
+               the <em>filter and transformation rules</em> section; and the <em>configuration</em> section. All four sections must be present
+               and occur in the order listed from top to bottom (as shown in the template portion of the <a href="./index.html">examples page</a>).
+               Each section is required to begin with its title. For instance, the sounds section is preceded by the word <code>Sounds</code>,
+               the syllables section is preceded by the word <code>Syllables</code>, etc.</p>
+            
+            <h4>Sounds Section</h4>
+            <p>The sounds section is made up of one or more <em>sound groups</em> and cannot be empty in any valid file. As many sound groups
+               as the user desires can be named, each with as many 'sounds' as desired. Sounds in Glossolalia are not sounds proper, just written
+               representations of sounds: you can use the name <code>alakazam</code> to stand for the sound of English 'f', if you wish, though sound
+               names with more than three letters are commonly discouraged (see the German-ish example for a justified exception).</p>
+            <p>Each sound group follows the same format: first, a <a href="#group-name">group name</a>, followed by an equal sign, follwed by a comma separated
+               list of <a href="#sound-name">sound names</a>. The list of sound names cannot be empty. In addition, each sound name may specify a
+               <a href="#percentage">percentage</a>, which represents the probability that the sound will be chosen out of the group. Every sound name
+               may specify a percentage, but if not all of them do, the probabilities of the remaining sound names are distributed equally from the
+               remaining percentage after subtracting the specified percentages from 100.</p>
+            <code class="block">&lt;sound-group&gt; ::= GROUP_NAME "=" &lt;sound&gt; ["," &lt;sound&gt;]*
+&lt;sound&gt; ::= SOUND_NAME ["=" PERCENTAGE]</code>
+
+            <h4>Syllables Section</h4>
+            <p>Individual sounds are the most basic element of a generated word. Syllables are constructed from one or more sounds, pulled randomly
+               from the specified sound groups. Syllables are also put into named groups, so that certain syllable patterns may be enforced or disallowed
+               by filtering rules. There must be at least one syllable group, and within each variant of the group, one or more sound groups must be
+               listed. Sounds will be chosen from the groups in the order they are listed, and will appear in the final generated word in that order.
+               Syllable groups may have an attached percentage, to make certain syllable kinds occur more frequently, and within groups each syllable
+               variant may also have a percentage to further refine the frequency.</p>
+            <p>Syllable groups follow a similar format to sound groups: each syllable group begins with a <a href="#syllable-name">syllable name</a>,
+               optionally followed by a percentage. Next comes the equal sign, followed by a bar <code>|</code> separated list of syllable variants.
+               A syllable variant is a list of one or more group names, each with an optional percentage.</p>
+            <code class="block">&lt;syll-group&gt; ::= SYLLABLE_NAME [":" PERCENTAGE] "=" &lt;vari-list&gt;
+&lt;vari-list&gt; ::= &lt;syll-variant&gt; ["|" &lt;syll-variant&gt;]*
+&lt;syll-variant&gt; ::= GROUP_NAME+ ["=" PERCENTAGE]</code>
+
+            <h4>Rules Section</h4>
+            <p>There are two types of rule in Glossolalia: <em>filtering</em> rules and <em>transformation</em> rules. Filtering rules check if a generated
+               word includes disallowed sound or syllable combinations, and keeps the word from being added to the generated word list if so. Transformation
+               rules change sound combinations that occur in a word to be some other sound, and can even be used to delete sounds in some instances.
+               All transformation rules are executed <em>after</em> the prospective word has passed all the filtering rules, and transformation rules are
+               applied cumulatively to a word, from top to bottom in the order they are written in the file.</p>
+            <p>Filtering rules may include a mix of sound and group names as arguments, or syllable names. Syllable name arguments cannot co-occur with
+               sound or group name arguments, as they operate on a different view of the word. Transformation rules only allow sound and group names
+               as arguments.</p>
+            <p>Rules come in three varieties: <em>unary</em>, <em>binary</em>, and <em>ternary</em>. Unary rules take a comma-separated list of arguments
+               before the keyword that names the rule. Binary rules take a comma-separated list of arguments on either side of the keyword that names the
+               rule. Ternary rules have two keywords that 'name' them. Both ends of the rule take a comma-separated list of arguments, and the keywords are
+               separated by zero or more sound names. Currently, all ternary rules are transformation rules, and all transformation rules are ternary.
+               Future versions of Glossolalia may not have this limitation.</p>
+            <code>&lt;rule&gt; ::= &lt;unary-rule&gt; | &lt;binary-rule&gt; | &lt;ternary-rule&gt;
+&lt;unary-rule&gt; ::= &lt;arg-list&gt; UNARY_RULE_NAME
+&lt;binary-rule&gt; ::= &lt;arg-list&gt; BINARY_RULE_NAME &lt;arg-list&gt;
+&lt;ternary-rule&gt; ::= &lt;arg-list&gt; TERNARY_RULE_PRIM SOUND_NAME* TERNARY_RULE_SUB &lt;arg-list&gt;</code>
+            <p>Most of the rule names follow a pattern and are fairly intuitive. The handling of multiple arguments in a rule is shorthand for spreading
+               the arguments out over multiple rules. So a rule like:</p>
+            <code class="block">q, k never-followed-by g, v</code>
+            <p>is equivalent to writing:</p>
+            <code class="block">q never-followed-by g
+q never-followed-by v
+k never-followed-by g
+k never-followed-by v</code>
+            <p>The shorthand version does have the potential to be more efficient when generating much larger lists of words. Here is a list of all
+               the rules Glossolalia currently supports.</p>
+            <div class="pure-g">
+                <div class="pure-u-1-2">
+                    <h5>Filter Rules</h5>
+                    <ul>
+                        <li><code>... never-starts-word</code></li>
+                        <li><code>... never-ends-word</code></li>
+                        <li><code>... never-in-middle-of-word</code></li>
+                        <li><code>... never-doubled</code></li>
+                        <li><code>... only-starts-word</code></li>
+                        <li><code>... only-ends-word</code></li>
+                        <li><code>... never-followed-by ...</code></li>
+                        <li><code>... never-preceded-by ...</code></li>
+                        <li><code>... never-adjacent-to ...</code></li>
+                        <li><code>... never-in-same-word-as ...</code></li>
+                        <li><code>... only-followed-by ...</code></li>
+                        <li><code>... only-preceded-by ...</code></li>
+                    </ul>
+                </div>
+                <div class="pure-u-1-2">
+                    <h5>Transformation Rules</h5>
+                    <ul>
+                        <li><code>... becomes ... before ...</code></li>
+                        <li><code>... becomes ... after ...</code></li>
+                        <li><code>... prepends ... before ...</code></li>
+                        <li><code>... prepends ... after ...</code></li>
+                        <li><code>... appends ... before ...</code></li>
+                        <li><code>... appends ... after ...</code></li>
+                    </ul>
+                </div>
+            </div>
+
+            <h4>Configuration Section</h4>
+            <p>The configuration section is a list of key-value pairs, where each value is an <a href="#integer">integer</a>. Each key-value pair 
+               is separated by an equal sign, and looks like <code>KEYWORD "=" INTEGER</code>. There are five allowed keys, and each
+               has a default value which is specified below:</p>
+            <ul>
+                <li><code>Seed</code> - Allows to generate a different word list (default: <code>9001</code>)</li>
+                <li><code>Count</code> - The number of words to generate (default: <code>100</code>)</li>
+                <li><code>Shortest</code> - The lowest possible number of syllables in a generated word (default: <code>1</code>)</li>
+                <li><code>Longest</code> - The biggest possible number of syllables in a generated word (default: <code>5</code>)</li>
+                <li><code>Mode</code> - The average number of syllables in the generated words (default: <code>(Longest - Shortest) / 2</code>)</li>
+            </ul>
+            <p>The <code>Shortest</code>, <code>Longest</code>, and <code>Mode</code> keywords together define a <em>triangle distribution</em>, which
+               is sampled when generating the 'random' number of syllables in each word. As a result, most generated words should have a syllable count closer
+               to <code>Mode</code> than to either of the ends.</p>
+
         </section>
+
         <section>
-            <h3>Rules</h3>
-            <p>Transformers are applied after a generated word is tested against filtering rules.</p>
+            <h3 id="lexical">Lexical</h3>
+            <hr>
+
+            <h4 id="comments">Comments</h4>
+            <p>A comment begins with two dashes <code>--</code> and runs to the end of the line.</p>
+
+            <h4 id="integer">Integer</h4>
+            <p>An <code>INTEGER</code> is one or more juxtaposed numeric characters.</p>
+
+            <h4 id="percentage">Percentage</h4>
+            <p>A <code>PERCENTAGE</code> is a decimal number followed by the percent symbol <code>%</code>.</p>
+
+            <h4 id="sound-name">Sound name</h4>
+            <p>A <code>SOUND_NAME</code> is one or more juxtaposed alphabetic characters.</p>
+
+            <h4 id="group-name">Group name</h4>
+            <p>A <code>GROUP_NAME</code> the at-sign <code>@</code> followed by one or more juxtaposed alphabetic characters,
+               possibly interspersed with single dashes <code>-</code>.</p>
+
+            <h4 id="syllable-name">Syllable name</h4>
+            <p>A <code>SYLLABLE_NAME</code> the dollar sign <code>$</code> followed by one or more juxtaposed alphabetic characters,
+                possibly interspersed with single dashes <code>-</code>.</p>
+
+            <h4 id="keyword">Keyword</h4>
+            <p>There are three types of keyword in Glossolalia:</p>
+            <ol>
+                <li>The four Headers: <code>Sounds</code>, <code>Syllables</code>, <code>Rules</code>, and <code>Configuration</code></li>
+                <li>The five Configuration keys: <code>Seed</code>, <code>Count</code>, <code>Shortest</code>, <code>Longest</code>, and <code>Mode</code></li>
+                <li>The transformation and filter rules listed above</li>
+            </ol>
         </section>
 
         <footer>Created and maintained by <a href="http://glossopoeia.com">Rob Kleffner</a>, 2017.</footer>

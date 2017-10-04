@@ -45,6 +45,12 @@ h3 {
     color: #888;
 }
 
+h4 {
+    margin: 30px 0 10px 0;
+    font-weight: bold;
+    color: #EE8F12;
+}
+
 a {
     color: rgb(66, 184, 221);
 }

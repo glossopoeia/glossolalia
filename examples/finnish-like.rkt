@@ -18,7 +18,11 @@ $full         = @onset @short @coda | @onset @long @coda = 20%
 Rules
 -----
 
+-- The 'never-in-same-word-as' rule allows us to get something
+-- similar to vowel harmony
 y, ä, ö, yy, ää, öö never-in-same-word-as a, o, u, aa, oo, uu
+
+-- The rest of the rules attempt to model Finnish consonant clusters
 p, t, k never-followed-by m, n
 p, k never-followed-by w, j
 p never-followed-by t, k
@@ -31,3 +35,5 @@ aa never-followed-by a
 
 Configuration
 -------------
+
+Seed = 1001

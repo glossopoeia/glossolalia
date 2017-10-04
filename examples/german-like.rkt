@@ -3,6 +3,11 @@
 Sounds
 ------
 
+-- One of the current shortcomings of Glossolalia is the difficult of getting
+-- consonant clusters into a syllable structure, particularly highly limited
+-- consonant clusters in German. I tried a couple different methods before
+-- settling on this brute-force approach.
+
 @onset-one = s, sch, p, t, k, b, d, g, f, v, l, r, m, n, z, h
 @onset-two = sp, st, sk, sl, schp, scht, schk, schl, schr, schm, schn, pl, pr, pf, bl, br, tr, dr, kl, kr, kn,
              gl, gr, gn, fr, fl
@@ -29,6 +34,8 @@ Rules
 -----
 
 @vowel never-doubled
+
+-- This rule keeps down on massively consonantal syllable boundaries.
 @coda-qua, @coda-tri never-followed-by @onset-tri
 
 Configuration

@@ -15,8 +15,9 @@ Syllables
 $vowels        = @short | @long
 $simple  : 50% = @onset @short | @onset @long
 $coda          = @onset @short @coda | @onset @long @coda
-$palatal : 25% = @palatal @short | @onset @palatal @short = 25% | @onset @palatal @short @coda |
-                 @palatal @long  | @onset @palatal @long  = 25% | @onset @palatal @long @coda
+$palatal : 25% = @palatal @short | @onset @palatal @short = 25%
+               | @onset @palatal @short @coda | @palatal @long 
+               | @onset @palatal @long  = 25% | @onset @palatal @long @coda
 
 Rules
 -----
