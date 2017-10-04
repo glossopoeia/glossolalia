@@ -1,7 +1,7 @@
 #lang racket
 
 (require "lexer.rkt" brag/support)
-#|
+
 (provide glossolalia-colorer)
 
 
@@ -34,6 +34,5 @@
                     ['COMMENT 'comment]
                     ['GROUP-NAME 'hash-colon-keyword]
                     ['SYLLABLE-NAME 'hash-colon-keyword]
-                    [else 'no-color]
-            (values val cat #f start end)])))
-|#
+                    [else 'no-color]))
+            (values val cat #f start end)]))
