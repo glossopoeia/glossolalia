@@ -11,12 +11,23 @@
      (interpret (quote PARSE-TREE))))
 (provide (rename-out [g-module-begin #%module-begin]))
 
+;; type Config = Integer, Integer, TriangleDistribution
 (struct config (seed count word-len-dist) #:transparent)
+
+;; type Ortho = String
+;; type GroupName = Symbol
+;; type Sound = Ortho, GroupName
 (struct sound (ortho group) #:transparent)
+
+;; type SyllableName = Symbol
+;; type Syllable = SyllableName, List Sound
 (struct syllable (name sounds) #:transparent)
 
 (provide interpret)
 
+;; interpret : Syntax -> Void
+;; Entry point for the word generator, creates the sampling data structures
+;; from the abstract syntax and generates the list of words.
 (define (interpret stx)
     (match stx
         [(list 't-file cats sylls rules gen)
@@ -29,6 +40,7 @@
          (generate config syllable-defs categories rule-funcs)]))
 
 ;; get-categories : Syntax -> Hash GroupName (Roulette Ortho)
+;; Converts the category abstract syntax into a map from group names to roulette wheels of sound names.
 (define (get-categories stx)
     ;; get-category : Syntax -> (GroupName, Roulette Ortho)
     (define (get-category stx)
@@ -49,8 +61,10 @@
          (make-immutable-hash (map get-category cats))]))
 
 ;; get-syllables : Syntax, List GroupName -> Roulette (SyllableName, Roulette (List GroupName))
+;; Convert the syllable abstract syntax into a roulette of roulettes for selecting a syllable group,
+;; then selecting a particular variant from within that group.
 (define (get-syllables stx cat-names)
-    ;; warn-undefined : List GroupName -> Void
+    ;; check-undefined : List GroupName -> Void
     (define (check-undefined syll-name groups)
         (for ([name (in-list groups)]
               #:when (not (member name cat-names)))
@@ -85,6 +99,7 @@
          (make-partial-roulette-mixed (map get-syllable sylls))]))
 
 ;; make-rules : Syntax -> (List Sound -> Bool, List Sound -> List Sound)
+;; Converts the rule abstract syntax into a list of filtering trules and a list of transformation rules.
 (define (make-rules stx)
     (define rule-templates (hash
         'never-starts-word          never-starts-word
@@ -106,6 +121,7 @@
         'appends-before             appends-before
         'appends-after              appends-after))
     
+    ;; get-rule-args : Syntax -> List (GroupName | Ortho) | List SyllableName
     (define (get-rule-args stx)
         (match stx
             [(list 't-rule-args args ...)
@@ -113,7 +129,7 @@
             [(list 't-srule-args args ...)
              args]))
 
-    ;; make-rule : Syntax -> (Bool, (List Sound -> Bool) | (List Sound -> List Sound))
+    ;; make-rule : Syntax -> (Bool, (List Syllable -> Bool) | (List Sound -> List Sound))
     ;; If the first part of the pair is true, the rule is a filter.
     ;; If the first part of the pair is false, the rule is a mapper.
     (define (make-rule stx)
@@ -148,6 +164,7 @@
 
     (match stx
         [(list 't-rules rules ...)
+         ;; this is essentially 'split-by is-filter? rules', but it's not a default racket function...
          (define-values (filters transformers)
             (for/fold ([filters empty] [transformers empty])
                       ([item (in-list (map make-rule rules))])
@@ -157,7 +174,13 @@
          (cons filters (reverse transformers))]))
 
 ;; get-config : Syntax -> Config
+;; Converts the configuartion abstract syntax into a configuartion structure.
 (define (get-config stx)
+    (define default-seed 9001)
+    (define default-count 100)
+    (define default-shortest 1)
+    (define default-longest 5)
+
     (define (verify-valid-distribution shortest longest mode)
         (cond
             [(or (< shortest 1))
@@ -176,11 +199,11 @@
                    #:when (symbol=? (first stx) sym))
             (second stx)))
 
-    (define (get-seed items) (get-with-default 't-seed 9001 items))
-    (define (get-count items) (get-with-default 't-count 100 items))
+    (define (get-seed items) (get-with-default 't-seed default-seed items))
+    (define (get-count items) (get-with-default 't-count default-count items))
     (define (get-word-len-dist items)
-        (define shortest (get-with-default 't-shortest 1 items))
-        (define longest (add1 (get-with-default 't-longest 5 items)))
+        (define shortest (get-with-default 't-shortest default-shortest items))
+        (define longest (add1 (get-with-default 't-longest default-longest items)))
         (define mode (get-with-default 't-mode (* 0.5 (+ longest shortest)) items))
         (verify-valid-distribution shortest longest mode)
         (triangle-dist shortest longest mode))
@@ -190,10 +213,54 @@
          (config (get-seed items) (get-count items) (get-word-len-dist items))]))
 
 ;; generate : Config, Roulette (SyllableName, Roulette (List GroupName)), Hash GroupName (Roulette Ortho), (List Filter, List Transformer) -> Void
+;; Generates the list of words and saves them to a file.
 (define (generate config sylls freqs rules)
     (random-seed (config-seed config))
 
-    (define words (generate-words config sylls freqs (car rules) (cdr rules)))
+    (define filters (car rules))      ;; List (List Syllable -> Bool)
+    (define transformers (cdr rules)) ;; List (List Sound -> List Sound)
+    (define syllable-dist (config-word-len-dist config)) ;; TriangleDistribution
+    (define max-gas 5000) ;; Integer
+
+    ;; generate-words : Void -> List (List Sound)
+    ;; Generates a random list of words.
+    (define (generate-words)
+        (for/fold ([words (list)])
+                  ([i (in-range (config-count config))])
+                  (append words (list (generate-word-under-rules words max-gas)))))
+
+    ;; generate-word-under-rules : List (List Sound), Integer -> List Sound
+    ;; Generates a word obeying the filter rules and applied under the transformation rules. If no valid
+    ;; word is found after 'max-gas' attempts at generating a new word, the program quits with an error.
+    ;; This helps keep the program terminating.
+    (define (generate-word-under-rules existing gas-left)
+        (if (<= gas-left 0)
+            (error 'generate-word "Ran out of gas while trying to generate a word, too many failed attempts!")
+            (let ([maybe (generate-word)])
+                (if (obey-rules filters maybe)
+                    (let ([transformed (apply-transformers transformers (syllable-word->sound-word maybe))])
+                        (if (not (member transformed existing))
+                            transformed
+                            (generate-word-under-rules existing (sub1 gas-left))))
+                    (generate-word-under-rules existing (sub1 gas-left))))))
+    
+    ;; generate-word : Void -> List Syllable
+    (define (generate-word)
+        ;; generate-sounds : List GroupName -> List Sound
+        (define (generate-sounds gs)
+            (for/list ([p (in-list gs)])
+                (sound (sample-roulette (hash-ref freqs p)) p)))
+
+        ;; generate-syllable : Void -> Syllable
+        (define (generate-syllable)
+            (define syll (sample-roulette sylls))
+            (syllable (car syll) (generate-sounds (sample-roulette (cdr syll)))))
+
+        (define word-len (floor (sample syllable-dist)))
+        (for/list ([i (in-range word-len)])
+            (generate-syllable)))
+
+    (define words (generate-words))
     (define string-words (map sound-word->string-word words))
 
     ;(displayln (map sound-word->string-word words))
@@ -204,40 +271,6 @@
     
     (displayln "Generated words successfully, check 'generated.txt' for the results.")
     (void))
-
-;; generate-words : Config, Roulette (SyllableName, Roulette (List GroupName)), Hash GroupName (Roulette Ortho), List Filter, List Transformer -> List (List Sound)
-(define (generate-words config sylls freqs filters transformers)
-    (define syllable-dist (config-word-len-dist config))
-    (define max-gas 5000)
-    (for/fold ([words (list)])
-              ([i (in-range (config-count config))])
-              (append words (list (generate-word-under-rules words syllable-dist sylls freqs filters transformers max-gas)))))
-
-;; generate-word-under-rules : List (List Sound), Distribution, Roulette (SyllableName, Roulette (List GroupName)), Hash GroupName (Roulette Ortho), List Filter, List Transformer -> List Sound
-(define (generate-word-under-rules existing syllable-dist sylls freqs filters transformers gas-left)
-    (if (<= gas-left 0)
-        (error 'generate-word "Ran out of gas while trying to generate a word, too many failed attempts!")
-        (let ([maybe (generate-word syllable-dist sylls freqs)])
-            (if (obey-rules filters maybe)
-                (let ([transformed (apply-transformers transformers (syllable-word->sound-word maybe))])
-                    (if (not (member transformed existing))
-                        transformed
-                        (generate-word-under-rules existing syllable-dist sylls freqs filters transformers (sub1 gas-left))))
-                (generate-word-under-rules existing syllable-dist sylls freqs filters transformers (sub1 gas-left))))))
-
-;; generate-word : Distribution, Roulette (SyllableName, Roulette (List GroupName)), Hash GroupName (Roulette Ortho) -> List Syllable
-(define (generate-word syllable-dist sylls freqs)
-    (define (generate-sounds gs)
-        (for/list ([p (in-list gs)])
-            (sound (sample-roulette (hash-ref freqs p)) p)))
-
-    (define (generate-syllable)
-        (define syll (sample-roulette sylls))
-        (syllable (car syll) (generate-sounds (sample-roulette (cdr syll)))))
-
-    (define word-len (floor (sample syllable-dist)))
-    (for/list ([i (in-range word-len)])
-        (generate-syllable)))
 
 ;; obey-rules : List (List Sound -> Bool), List Sound -> Bool
 (define (obey-rules rules word)
