@@ -11,8 +11,8 @@
 (define glossolalia-lexer
     (lexer-srcloc
         [(eof) (return-without-srcloc eof)]
-        [whitespace (token 'WS #:skip? #t)]
-        [(from/to "--" "\n") (token 'COMMENT #:skip? #t)]
+        [whitespace (token 'WS lexeme #:skip? #t)]
+        [(from/to "--" "\n") (token 'COMMENT lexeme #:skip? #t)]
         [(:or "Sounds" "Syllables" "Rules" "Configuration" "Seed" "Count" "Longest" "Shortest" "Mode" "," "=" ":" "|")
          (token lexeme lexeme)]
         [(:or "never-starts-word" "never-ends-word" "never-in-middle-of-word" "never-doubled" "only-starts-word" "only-ends-word")
