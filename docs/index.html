@@ -31,9 +31,9 @@
         </header>
 
         <summary id="about">
-        Glossolalia is a domain-specific language for the reproducible generation of words in constructed (<em>made-up</em>) languages.
-        Design your conlang's sounds, syllable structure, and word construction rules in a simple declarative language, then run the file
-        to get a list of generated words! Run the examples below after <a href="./installation.html">installing</a> to see what
+        Glossolalia is a domain-specific language for the reproducible generation of words in constructed (made-up) languages, commonly
+        called <em>conlangs</em>. Design your conlang's sounds, syllable structure, and word construction rules in a simple declarative language,
+        then run the file to get a list of generated words! Run the examples below after <a href="./installation.html">installing</a> to see what
         Glossolalia can do, or learn more from the <a href="./description.html">description</a> of the language.
         </summary>
         
@@ -275,17 +275,28 @@ aa <span class="keyword">never-followed-by</span> a
             <code id="template-ish" class="block" style="display: none;">
 <span class="keyword">#lang</span> glossolalia
 
+<span class="comment">-- Add your own sounds, syllables, and rules to this template to get a</span>
+<span class="comment">-- list of words in your own unique language style!</span>
+
 <span class="keyword">Sounds</span>
 <span class="comment">------</span>
+
+<span class="comment">-- The sounds section must have at least one sound group.</span>
 
 <span class="keyword">Syllables</span>
 <span class="comment">---------</span>
 
+<span class="comment">-- The syllables section must specify at least one syllable type.</span>
+
 <span class="keyword">Rules</span>
 <span class="comment">-----</span>
 
+<span class="comment">-- This section can be empty.</span>
+
 <span class="keyword">Configuration</span>
 <span class="comment">-------------</span>
+
+<span class="comment">-- This one can too!</span>
             </code>
 
         </section>
