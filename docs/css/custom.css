@@ -32,6 +32,12 @@ header {
         font-size: 3em;
         font-weight: 300;
     }
+
+    header h1 > a {
+        color: #333;
+        text-decoration: none;
+    }
+
     header h2 {
         font-weight: 300;
         color: #ccc;
@@ -43,6 +49,7 @@ h3 {
     margin: 50px 0 20px 0;
     font-weight: 300;
     color: #888;
+    text-align: center;
 }
 
 h4 {
