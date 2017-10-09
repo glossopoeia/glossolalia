@@ -1,6 +1,6 @@
 #lang racket
-(require "parser.rkt" "tokenizer.rkt" "roulette-wheel.rkt")
-(require math/distributions br/syntax)
+(require "parser.rkt" "tokenizer.rkt")
+(require br/syntax)
 
 (define (read-syntax path port)
     (define parse-tree (syntax->datum (parse path (make-tokenizer port path))))
