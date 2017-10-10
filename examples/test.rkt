@@ -1,3 +1,4 @@
+#lang glossolalia
 
 Sounds
 ------
