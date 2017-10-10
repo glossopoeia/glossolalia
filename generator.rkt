@@ -137,36 +137,39 @@
             [(list 't-srule-args args ...)
              (warn-undefined args syll-names)
              args]))
+    
+    (define (filter-rule r) (cons #t r))
+    (define (transform-rule r) (cons #f r))
 
     ;; make-rule : Syntax -> (Bool, (List Syllable -> Bool) | (List Sound -> List Sound))
     ;; If the first part of the pair is true, the rule is a filter.
-    ;; If the first part of the pair is false, the rule is a mapper.
+    ;; If the first part of the pair is false, the rule is a transformer.
     (define (make-rule stx)
         (match stx
             [(list 't-unary-rule args name)
-             (cons #t
+             (filter-rule
                 (make-word-rule
                     (curry (hash-ref rule-templates name)
                            (get-rule-args args))))]
             [(list 't-binary-rule l-args name r-args)
-             (cons #t
+             (filter-rule
                 (make-word-rule
                     (curry (hash-ref rule-templates name)
                            (get-rule-args l-args)
                            (get-rule-args r-args))))]
             [(list 't-ternary-rule l-args name m-args ... ind r-args)
              (define rule-name (string->symbol (string-append (symbol->string name) "-" (symbol->string ind))))
-             (cons #f
+             (transform-rule
                 (curry (hash-ref rule-templates rule-name)
                        (get-rule-args l-args)
                        (map no-group-sound m-args)
                        (get-rule-args r-args)))]
             [(list 't-unary-srule args name)
-             (cons #t
+             (filter-rule
                 (curry (hash-ref rule-templates name)
                        (get-rule-args args)))]
             [(list 't-binary-srule l-args name r-args)
-             (cons #t
+             (filter-rule
                 (curry (hash-ref rule-templates name)
                        (get-rule-args l-args)
                        (get-rule-args r-args)))]))
