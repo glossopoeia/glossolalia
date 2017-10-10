@@ -3,6 +3,9 @@
 Sounds
 ------
 
+-- Despite seeming simple upon first glance, Finnish is suprisingly
+-- difficult to replicate. I'm still not sure I've got it right.
+
 @onset = m, n, p, t, k, f, s, h, w, l, j, r
 @short = a, e, i, o, u, y, ä = 5%, ö = 5%
 @long  = aa, ee, ii, oo, uu, yy, ää = 5%, öö = 5%
