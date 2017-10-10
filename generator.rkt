@@ -33,7 +33,7 @@
         [(list 't-file cats sylls rules gen)
          (define categories (get-categories cats))
          (define syllable-defs (get-syllables sylls (hash-keys categories)))
-         (define rule-funcs (make-rules rules))
+         (define rule-funcs (make-rules rules (hash-keys categories) (map car (hash-keys syllable-defs))))
          (define config (get-config gen))
          (displayln "Generating...")
          (flush-output)
@@ -100,7 +100,7 @@
 
 ;; make-rules : Syntax -> (List Sound -> Bool, List Sound -> List Sound)
 ;; Converts the rule abstract syntax into a list of filtering trules and a list of transformation rules.
-(define (make-rules stx)
+(define (make-rules stx cat-names syll-names)
     (define rule-templates (hash
         'never-starts-word          never-starts-word
         'never-ends-word            never-ends-word
@@ -121,12 +121,21 @@
         'appends-before             appends-before
         'appends-after              appends-after))
     
+    (define (warn-undefined args defs)
+        (for ([a (in-list args)]
+              #:when (and (symbol? a) (not (member a defs))))
+            (displayln (string-append "Warning: "
+                                      (symbol->string a)
+                                      " is not defined, did you mean something else?"))))
+    
     ;; get-rule-args : Syntax -> List (GroupName | Ortho) | List SyllableName
     (define (get-rule-args stx)
         (match stx
             [(list 't-rule-args args ...)
+             (warn-undefined args cat-names)
              args]
             [(list 't-srule-args args ...)
+             (warn-undefined args syll-names)
              args]))
 
     ;; make-rule : Syntax -> (Bool, (List Syllable -> Bool) | (List Sound -> List Sound))
