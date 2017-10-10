@@ -7,4 +7,6 @@
 
 @defmodule[glossolalia]
 
-Package Description Here
+Could be on it's way here someday.
+
+For now, see the @["https://robertkleffner.github.io/glossolalia/"]{tutorial and overview site}.
