@@ -9,4 +9,4 @@
 
 Could be on it's way here someday.
 
-For now, see the @["https://robertkleffner.github.io/glossolalia/"]{tutorial and overview site}.
+For now, see the @hyperlink["https://robertkleffner.github.io/glossolalia/"]{tutorial and overview site}.
