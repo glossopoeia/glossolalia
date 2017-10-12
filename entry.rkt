@@ -3,6 +3,8 @@
 (require racket/cmdline)
 (require "tokenizer.rkt" "parser.rkt" "generator.rkt")
 
+(module test racket/base)
+
 (define input-file-path
     (command-line
         #:program "glossolalia"
