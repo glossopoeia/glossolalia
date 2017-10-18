@@ -276,7 +276,7 @@
     (define string-words (map sound-word->string-word words))
 
     ;(displayln (map sound-word->string-word words))
-    (define out (open-output-file "./generated.txt" #:exists 'replace))
+    (define out (open-output-file "./generated.txt" #:exists 'replace #:mode 'text))
     (for ([l (in-list string-words)])
         (displayln l out))
     (close-output-port out)
