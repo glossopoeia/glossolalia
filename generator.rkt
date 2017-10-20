@@ -1,6 +1,6 @@
 #lang racket
 
-(require "parser.rkt" "tokenizer.rkt" "roulette-wheel.rkt")
+(require "roulette-wheel.rkt")
 (require math/distributions br/syntax br/define)
 
 (module+ test
@@ -11,8 +11,8 @@
      (interpret (quote PARSE-TREE))))
 (provide (rename-out [g-module-begin #%module-begin]))
 
-;; type Config = Integer, Integer, TriangleDistribution
-(struct config (seed count word-len-dist) #:transparent)
+;; type Config = Integer, Integer, TriangleDistribution, String
+(struct config (seed count word-len-dist outfile) #:transparent)
 
 ;; type Ortho = String
 ;; type GroupName = Symbol
@@ -192,6 +192,7 @@
     (define default-count 100)
     (define default-shortest 1)
     (define default-longest 5)
+    (define default-output "generated")
 
     (define (verify-valid-distribution shortest longest mode)
         (cond
@@ -219,14 +220,18 @@
         (define mode (get-with-default 't-mode (* 0.5 (+ longest shortest)) items))
         (verify-valid-distribution shortest longest mode)
         (triangle-dist shortest longest mode))
+    (define (get-outfile items) (string-append (get-with-default 't-output default-output items) ".txt"))
 
     (match stx
         [(list 't-generate items ...)
-         (config (get-seed items) (get-count items) (get-word-len-dist items))]))
+         (config (get-seed items) (get-count items) (get-word-len-dist items) (get-outfile items))]))
 
 ;; generate : Config, Roulette (SyllableName, Roulette (List GroupName)), Hash GroupName (Roulette Ortho), (List Filter, List Transformer) -> Void
 ;; Generates the list of words and saves them to a file.
 (define (generate config sylls freqs rules)
+    (when (string-contains? (config-outfile config) "'")
+        (error 'generate "Output filename cannot contain an apostrophe"))
+
     (random-seed (config-seed config))
 
     (define filters (car rules))      ;; List (List Syllable -> Bool)
@@ -276,12 +281,12 @@
     (define string-words (map sound-word->string-word words))
 
     ;(displayln (map sound-word->string-word words))
-    (define out (open-output-file "./generated.txt" #:exists 'replace #:mode 'text))
+    (define out (open-output-file (config-outfile config) #:exists 'replace #:mode 'text))
     (for ([l (in-list string-words)])
         (displayln l out))
     (close-output-port out)
     
-    (displayln "Generated words successfully, check 'generated.txt' for the results.")
+    (displayln (string-append "Generated words successfully, check '" (config-outfile config) "' for the results."))
     (void))
 
 ;; obey-rules : List (List Sound -> Bool), List Sound -> Bool

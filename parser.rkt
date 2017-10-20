@@ -29,9 +29,10 @@ t-rule-args    : t-rule-arg (/"," t-rule-arg)*
 t-srule-args   : SYLLABLE-NAME (/"," SYLLABLE-NAME)*
 
 t-generate     : /"Configuration" t-config-item*
-@t-config-item : t-seed | t-count | t-shortest | t-longest | t-mode
+@t-config-item : t-seed | t-count | t-shortest | t-longest | t-mode | t-output
 t-seed         : /"Seed" /"=" INTEGER
 t-count        : /"Count" /"=" INTEGER
 t-shortest     : /"Shortest" /"=" INTEGER
 t-longest      : /"Longest" /"=" INTEGER
 t-mode         : /"Mode" /"=" INTEGER
+t-output       : /"Output" /"=" SOUND-NAME
