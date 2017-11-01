@@ -286,7 +286,7 @@
         (displayln l out))
     (close-output-port out)
     
-    (displayln (string-append "Generated words successfully, check '" (config-outfile config) "' for the results."))
+    (displayln (string-append "Generated words successfully, check '" (path->string (current-directory)) (config-outfile config) "' for the results."))
     (void))
 
 ;; obey-rules : List (List Sound -> Bool), List Sound -> Bool
