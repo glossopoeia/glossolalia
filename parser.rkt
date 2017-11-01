@@ -1,6 +1,6 @@
 #lang brag
 
-t-file : t-categories t-syllables t-rules t-generate
+t-top : t-categories t-syllables t-rules t-generate
 
 t-categories : /"Sounds" t-category+
 t-category   : GROUP-NAME /"=" t-cat-sound (/"," t-cat-sound)*
@@ -29,10 +29,11 @@ t-rule-args    : t-rule-arg (/"," t-rule-arg)*
 t-srule-args   : SYLLABLE-NAME (/"," SYLLABLE-NAME)*
 
 t-generate     : /"Configuration" t-config-item*
-@t-config-item : t-seed | t-count | t-shortest | t-longest | t-mode | t-output
+@t-config-item : t-seed | t-count | t-shortest | t-longest | t-mode | t-path | t-file
 t-seed         : /"Seed" /"=" INTEGER
 t-count        : /"Count" /"=" INTEGER
 t-shortest     : /"Shortest" /"=" INTEGER
 t-longest      : /"Longest" /"=" INTEGER
 t-mode         : /"Mode" /"=" INTEGER
-t-output       : /"Output" /"=" SOUND-NAME
+t-path         : /"Path" /"=" STRING
+t-file         : /"File" /"=" STRING

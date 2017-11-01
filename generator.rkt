@@ -30,11 +30,11 @@
 ;; from the abstract syntax and generates the list of words.
 (define (interpret stx)
     (match stx
-        [(list 't-file cats sylls rules gen)
+        [(list 't-top cats sylls rules conf)
          (define categories (get-categories cats))
          (define syllable-defs (get-syllables sylls (hash-keys categories)))
          (define rule-funcs (make-rules rules (hash-keys categories) (map car (hash-keys syllable-defs))))
-         (define config (get-config gen))
+         (define config (get-config conf))
          (displayln "Generating...")
          (flush-output)
          (generate config syllable-defs categories rule-funcs)]))
@@ -192,7 +192,8 @@
     (define default-count 100)
     (define default-shortest 1)
     (define default-longest 5)
-    (define default-output "generated")
+    (define default-file "generated")
+    (define default-path (path->string (current-directory)))
 
     (define (verify-valid-distribution shortest longest mode)
         (cond
@@ -220,18 +221,17 @@
         (define mode (get-with-default 't-mode (* 0.5 (+ longest shortest)) items))
         (verify-valid-distribution shortest longest mode)
         (triangle-dist shortest longest mode))
-    (define (get-outfile items) (string-append (get-with-default 't-output default-output items) ".txt"))
+    (define (get-outfile items) (string-append (get-with-default 't-file default-file items) ".txt"))
+    (define (get-outpath items) (get-with-default 't-path default-path items))
+    (define (get-full-outfile items) (string-append (get-outpath items) (get-outfile items)))
 
     (match stx
         [(list 't-generate items ...)
-         (config (get-seed items) (get-count items) (get-word-len-dist items) (get-outfile items))]))
+         (config (get-seed items) (get-count items) (get-word-len-dist items) (get-full-outfile items))]))
 
 ;; generate : Config, Roulette (SyllableName, Roulette (List GroupName)), Hash GroupName (Roulette Ortho), (List Filter, List Transformer) -> Void
 ;; Generates the list of words and saves them to a file.
 (define (generate config sylls freqs rules)
-    (when (string-contains? (config-outfile config) "'")
-        (error 'generate "Output filename cannot contain an apostrophe"))
-
     (random-seed (config-seed config))
 
     (define filters (car rules))      ;; List (List Syllable -> Bool)
@@ -286,7 +286,7 @@
         (displayln l out))
     (close-output-port out)
     
-    (displayln (string-append "Generated words successfully, check '" (path->string (current-directory)) (config-outfile config) "' for the results."))
+    (displayln (string-append "Generated words successfully, check '" (config-outfile config) "' for the results."))
     (void))
 
 ;; obey-rules : List (List Sound -> Bool), List Sound -> Bool

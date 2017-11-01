@@ -13,7 +13,7 @@
         [(eof) (return-without-srcloc eof)]
         [whitespace (token 'WS lexeme #:skip? #t)]
         [(from/to "--" "\n") (token 'COMMENT lexeme #:skip? #t)]
-        [(:or "Sounds" "Syllables" "Rules" "Configuration" "Seed" "Count" "Longest" "Shortest" "Mode" "Output" "," "=" ":" "|")
+        [(:or "Sounds" "Syllables" "Rules" "Configuration" "Seed" "Count" "Longest" "Shortest" "Mode" "Path" "File" "," "=" ":" "|")
          (token lexeme lexeme)]
         [(:or "never-starts-word" "never-ends-word" "never-in-middle-of-word" "never-doubled" "only-starts-word" "only-ends-word")
          (token 'UNARY-RULE-NAME (string->symbol lexeme))]
@@ -32,6 +32,8 @@
         [(:seq "@" (:+ (:or alphabetic "-")))
          (token 'GROUP-NAME (string->symbol lexeme))]
         [(:seq "$" (:+ (:or alphabetic "-")))
-         (token 'SYLLABLE-NAME (string->symbol lexeme))]))
+         (token 'SYLLABLE-NAME (string->symbol lexeme))]
+        [(from/to "\"" "\"")
+         (token 'STRING (substring lexeme 1 (sub1 (string-length lexeme))))]))
 
 (provide glossolalia-lexer)
