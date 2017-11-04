@@ -33,7 +33,8 @@
         <section>
             <h3>Usage</h3>
             <hr>
-            <p>In both methods, the generated word list appears in the file <code>generated.txt</code> in the working directory.</p>
+            <p>In both methods, the generated word list appears in the file <code>generated.txt</code> in the working directory. When starting Dr. Racket
+               without a pre-existing file, the current directory is the user's home directory.</p>
             <h4>Command Line</h4>
             <p>If you have Racket installed, you can run any of your Glossolalia files from whichever directory they are in:</p>
             <code>racket example_lang.rkt</code>
@@ -143,15 +144,18 @@ k never-followed-by v</code>
             </div>
 
             <h4>Configuration Section</h4>
-            <p>The configuration section is a list of key-value pairs, where each value is an <a href="#integer">integer</a>. Each key-value pair 
-               is separated by an equal sign, and looks like <code>KEYWORD "=" INTEGER</code>. There are five allowed keys, and each
-               has a default value which is specified below:</p>
+            <p>The configuration section is a list of key-value pairs, where each value is either an <a href="#integer">integer</a>
+               or a <a href="#string">string</a>. Each key-value pair is separated by an equal sign, and looks like
+               <code>KEYWORD "=" VALUE</code>. There are seven allowed keys, and each has a default value which is specified below.
+               Only the last two fields are string typed, while the first five take integers.</p>
             <ul>
                 <li><code>Seed</code> - Allows to generate a different word list (default: <code>9001</code>)</li>
                 <li><code>Count</code> - The number of words to generate (default: <code>100</code>)</li>
                 <li><code>Shortest</code> - The lowest possible number of syllables in a generated word (default: <code>1</code>)</li>
                 <li><code>Longest</code> - The biggest possible number of syllables in a generated word (default: <code>5</code>)</li>
                 <li><code>Mode</code> - The average number of syllables in the generated words (default: <code>(Longest - Shortest) / 2</code>)</li>
+                <li><code>Path</code> - The directory in which the output file will be generated (default: <code>(current-directory)</code>)</li>
+                <li><code>File</code> - The name of the output file, without the extension (default: <code>"generated"</code>)</li>
             </ul>
             <p>The <code>Shortest</code>, <code>Longest</code>, and <code>Mode</code> keywords together define a <em>triangle distribution</em>, which
                is sampled when generating the 'random' number of syllables in each word. As a result, most generated words should have a syllable count closer
@@ -190,6 +194,11 @@ k never-followed-by v</code>
                 <li>The five Configuration keys: <code>Seed</code>, <code>Count</code>, <code>Shortest</code>, <code>Longest</code>, and <code>Mode</code></li>
                 <li>The transformation and filter rules listed above</li>
             </ol>
+
+            <h4 id="string">String</h4>
+            <p>Strings begin with a double quote and end with a double quote; everything within the double quotes are the <em>string contents</em>.
+               The string cannot contain double quotes within it, but this is fine since strings are only used for path and file names in Glossolalia
+               anyway.</p>
         </section>
 
         <footer>Created and maintained by <a href="http://glossopoeia.com">Rob Kleffner</a>, 2017.</footer>
