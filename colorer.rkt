@@ -34,5 +34,6 @@
                     ['COMMENT 'comment]
                     ['GROUP-NAME 'hash-colon-keyword]
                     ['SYLLABLE-NAME 'hash-colon-keyword]
+                    ['STRING 'string]
                     [else 'no-color]))
             (values val cat #f start end)]))
