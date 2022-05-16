@@ -1,6 +1,7 @@
 #lang info
 (define collection "glossolalia")
-(define deps '("base"
+(define deps '("beautiful-racket-macro"
+               "base"
                "rackunit-lib"
                "math-lib"
                "brag"
